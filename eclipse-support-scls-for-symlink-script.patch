@@ -1,0 +1,76 @@
+diff --git dependencies/replace_platform_plugins_with_symlinks.sh dependencies/replace_platform_plugins_with_symlinks.sh
+index febe616..e9cad48 100755
+--- dependencies/replace_platform_plugins_with_symlinks.sh
++++ dependencies/replace_platform_plugins_with_symlinks.sh
+@@ -3,21 +3,20 @@
+ # Then into plugins, and then symlinks 
+ 
+ # SCL java dir is different from default
+-SCL_JAVA_DIR=$2
++SCL_JAVA_DIRS=${@:2}
+ 
+ function _symlink {
+ 	_f=`ls | grep -e "^$1"`
+ 	rm -rf $_f
+-	if [ -f ${SCL_JAVA_DIR}/$2  ]; then
+-		echo "found ${SCL_JAVA_DIR}/$2"
+-		ln -s ${SCL_JAVA_DIR}/$2 ${_f%.jar}.jar
+-	elif [ -f /usr/share/java/$2 ]; then
+-		echo "found /usr/share/java/$2"
+-		ln -s /usr/share/java/$2 ${_f%.jar}.jar
+-	else
+-		echo "not found ${SCL_JAVA_DIR}/$2 or /usr/share/java/$2"
+-		exit 1
+-	fi
++	for SCL_JAVA_DIR in ${SCL_JAVA_DIRS}; do
++		if [ -f ${SCL_JAVA_DIR}/$2  ]; then
++			echo "found ${SCL_JAVA_DIR}/$2"
++			ln -s ${SCL_JAVA_DIR}/$2 ${_f%.jar}.jar
++			return 0
++		fi
++	done
++	echo "not found $2 in any of ${SCL_JAVA_DIRS}"
++	exit 1
+ }
+ 
+ pushd $1
+diff --git testbundle-to-eclipse-test/gatherBundles.sh testbundle-to-eclipse-test/gatherBundles.sh
+index a388f4e..4379357 100755
+--- testbundle-to-eclipse-test/gatherBundles.sh
++++ testbundle-to-eclipse-test/gatherBundles.sh
+@@ -32,15 +32,13 @@ pushd $sdk >/dev/null
+ 	      (cd $eclipse/dropins/$f/eclipse;
+ 				ls -d plugins/* features/* 2>/dev/null) |
+ 	      while read g; do
+-		  [ ! -e $g ] && \
+-		    ln -s $eclipse/dropins/$f/eclipse/$g $g
++		    ln -sf $eclipse/dropins/$f/eclipse/$g $g
+ 	      done
+           else
+ 	      (cd $eclipse/dropins/$f;
+ 				ls -d plugins/* features/* 2>/dev/null) |
+ 	      while read g; do
+-	          [ ! -e $g ] && \
+-		    ln -s $eclipse/dropins/$f/$g $g
++		    ln -sf $eclipse/dropins/$f/$g $g
+ 	      done
+           fi
+       done
+@@ -50,15 +48,13 @@ pushd $sdk >/dev/null
+ 	      (cd $datadir/dropins/$f/eclipse;
+ 				ls -d plugins/* features/* 2>/dev/null) |
+ 	      while read g; do
+-		  [ ! -e $g ] && \
+-		    ln -s $datadir/dropins/$f/eclipse/$g $g
++		    ln -sf $datadir/dropins/$f/eclipse/$g $g
+ 	      done
+           else
+ 	      (cd $datadir/dropins/$f;
+ 				ls -d plugins/* features/* 2>/dev/null) |
+ 	      while read g; do
+-	          [ ! -e $g ] && \
+-		    ln -s $datadir/dropins/$f/$g $g
++		    ln -sf $datadir/dropins/$f/$g $g
+ 	      done
+           fi
+       done

@@ -1,0 +1,63 @@
+--- eclipse.jdt/org.eclipse.jdt-feature/feature.xml.old	2014-05-19 15:24:30.868884801 -0400
++++ eclipse.jdt/org.eclipse.jdt-feature/feature.xml	2014-05-19 15:24:42.186567987 -0400
+@@ -85,13 +85,6 @@
+          unpack="false"/>
+ 
+    <plugin
+-         id="org.eclipse.jdt.annotation"
+-         download-size="0"
+-         install-size="0"
+-         version="2.0.0.qualifier"
+-         unpack="false"/>
+-
+-   <plugin
+          id="org.eclipse.jdt.core.manipulation"
+          download-size="0"
+          install-size="0"
+--- eclipse.jdt.core/org.eclipse.jdt.apt.pluggable.tests/META-INF/MANIFEST.MF.orig	2015-03-03 15:47:48.996114578 +0000
++++ eclipse.jdt.core/org.eclipse.jdt.apt.pluggable.tests/META-INF/MANIFEST.MF	2015-03-03 15:48:14.355657645 +0000
+@@ -15,8 +15,7 @@
+  org.eclipse.test.performance,
+  org.eclipse.jdt.core,
+  org.eclipse.ui.ide,
+- org.eclipse.jdt.annotation;bundle-version="[1.1.0,2.0.0)";resolution:=optional,
+- org.eclipse.jdt.annotation;bundle-version="[2.0.0,3.0.0)";resolution:=optional
++ org.eclipse.jdt.annotation;bundle-version="[1.1.0,2.0.0)";resolution:=optional
+ Bundle-ActivationPolicy: lazy
+ Bundle-Vendor: %providerName
+ Bundle-RequiredExecutionEnvironment: JavaSE-1.6
+--- eclipse.jdt.core/org.eclipse.jdt.core.tests.compiler/META-INF/MANIFEST.MF.orig	2015-03-03 15:47:48.997114560 +0000
++++ eclipse.jdt.core/org.eclipse.jdt.core.tests.compiler/META-INF/MANIFEST.MF	2015-03-03 15:48:22.679507663 +0000
+@@ -20,8 +20,7 @@
+  org.eclipse.core.runtime;bundle-version="[3.2.0,4.0.0)",
+  org.eclipse.test.performance;bundle-version="[3.1.0,4.0.0)",
+  org.eclipse.core.resources;bundle-version="[3.2.0,4.0.0)",
+- org.eclipse.jdt.annotation;bundle-version="[1.1.0,2.0.0)";resolution:=optional,
+- org.eclipse.jdt.annotation;bundle-version="[2.0.0,3.0.0)";resolution:=optional
++ org.eclipse.jdt.annotation;bundle-version="[1.1.0,2.0.0)";resolution:=optional
+ Bundle-RequiredExecutionEnvironment: J2SE-1.4
+ Eclipse-BundleShape: dir
+ Bundle-Activator: org.eclipse.jdt.core.tests.compiler.Activator
+--- eclipse.jdt.core/org.eclipse.jdt.core.tests.builder/META-INF/MANIFEST.MF.orig	2015-03-03 15:47:48.998114542 +0000
++++ eclipse.jdt.core/org.eclipse.jdt.core.tests.builder/META-INF/MANIFEST.MF	2015-03-03 15:48:32.001339702 +0000
+@@ -12,7 +12,6 @@
+  org.eclipse.core.resources;bundle-version="[3.2.0,4.0.0)",
+  org.eclipse.core.runtime;bundle-version="[3.2.0,4.0.0)",
+  org.eclipse.test.performance;bundle-version="[3.1.0,4.0.0)",
+- org.eclipse.jdt.annotation;bundle-version="[1.1.0,2.0.0)";resolution:=optional,
+- org.eclipse.jdt.annotation;bundle-version="[2.0.0,3.0.0)";resolution:=optional
++ org.eclipse.jdt.annotation;bundle-version="[1.1.0,2.0.0)";resolution:=optional
+ Bundle-RequiredExecutionEnvironment: J2SE-1.4
+ Eclipse-BundleShape: dir
+--- eclipse.jdt.core/org.eclipse.jdt.core.tests.model/META-INF/MANIFEST.MF.orig	2015-03-03 15:47:48.998114542 +0000
++++ eclipse.jdt.core/org.eclipse.jdt.core.tests.model/META-INF/MANIFEST.MF	2015-03-03 15:48:39.720200622 +0000
+@@ -25,8 +25,7 @@
+  org.eclipse.text;bundle-version="[3.2.0,4.0.0)",
+  com.ibm.icu;bundle-version="3.4.4",
+  org.eclipse.core.filesystem;bundle-version="[1.2.0,2.0.0)",
+- org.eclipse.jdt.annotation;bundle-version="[1.1.0,2.0.0)";resolution:=optional,
+- org.eclipse.jdt.annotation;bundle-version="[2.0.0,3.0.0)";resolution:=optional
++ org.eclipse.jdt.annotation;bundle-version="[1.1.0,2.0.0)";resolution:=optional
+ Bundle-RequiredExecutionEnvironment: J2SE-1.4
+ Eclipse-BundleShape: dir
+ Bundle-Activator: org.eclipse.jdt.core.tests.Activator
