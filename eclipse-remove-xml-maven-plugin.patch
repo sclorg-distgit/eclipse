@@ -1,0 +1,96 @@
+--- rt.equinox.framework/features/org.eclipse.equinox.executable.feature/pom.xml.orig	2015-03-02 09:49:40.000000000 +0000
++++ rt.equinox.framework/features/org.eclipse.equinox.executable.feature/pom.xml	2015-05-12 16:08:11.264159105 +0100
+@@ -78,27 +78,25 @@
+       </plugin>
+       <plugin>
+         <groupId>org.codehaus.mojo</groupId>
+-        <artifactId>xml-maven-plugin</artifactId>
+-        <version>1.0</version>
++        <artifactId>exec-maven-plugin</artifactId>
++        <version>1.2.1</version>
+         <executions>
+           <execution>
+             <id>generate-extra-iu</id>
+             <phase>verify</phase>
+             <goals>
+-              <goal>transform</goal>
++              <goal>exec</goal>
+             </goals>
+           </execution>
+         </executions>
+         <configuration>
+-          <transformationSets>
+-            <transformationSet>
+-              <dir>target</dir>
+-              <includes>
+-                <include>p2content.xml</include>
+-              </includes>
+-              <stylesheet>cp-content.xsl</stylesheet>
+-            </transformationSet>
+-          </transformationSets>
++          <executable>xsltproc</executable>
++          <arguments>
++            <argument>-o</argument>
++            <argument>${basedir}/target/generated-resources/xml/xslt/p2content.xml</argument>
++            <argument>cp-content.xsl</argument>
++            <argument>target/p2content.xml</argument>
++          </arguments>
+         </configuration>
+       </plugin>
+       <plugin>
+@@ -112,6 +110,7 @@
+               <goal>copy-resources</goal>
+             </goals>
+             <configuration>
++              <overwrite>true</overwrite>
+               <outputDirectory>${basedir}/target</outputDirectory>
+               <resources>
+                 <resource>
+--- eclipse.platform.releng.tychoeclipsebuilder/eclipse.platform.repository/pom.xml.orig	2015-05-12 16:41:16.024179917 +0100
++++ eclipse.platform.releng.tychoeclipsebuilder/eclipse.platform.repository/pom.xml	2015-05-12 16:44:20.515776881 +0100
+@@ -39,27 +39,25 @@
+       </plugin>
+       <plugin>
+         <groupId>org.codehaus.mojo</groupId>
+-        <artifactId>xml-maven-plugin</artifactId>
+-        <version>1.0</version>
++        <artifactId>exec-maven-plugin</artifactId>
++        <version>1.2.1</version>
+         <executions>
+           <execution>
+             <id>generate-extra-iu</id>
+             <phase>package</phase>
+             <goals>
+-              <goal>transform</goal>
++              <goal>exec</goal>
+             </goals>
+           </execution>
+         </executions>
+         <configuration>
+-          <transformationSets>
+-            <transformationSet>
+-              <dir>target/repository</dir>
+-              <includes>
+-                <include>content.xml</include>
+-              </includes>
+-              <stylesheet>cp-content.xsl</stylesheet>
+-            </transformationSet>
+-          </transformationSets>
++          <executable>xsltproc</executable>
++          <arguments>
++            <argument>-o</argument>
++            <argument>${basedir}/target/generated-resources/xml/xslt/content.xml</argument>
++            <argument>cp-content.xsl</argument>
++            <argument>target/repository/content.xml</argument>
++          </arguments>
+         </configuration>
+       </plugin>
+       <plugin>
+@@ -73,6 +71,7 @@
+               <goal>copy-resources</goal>
+             </goals>
+             <configuration>
++              <overwrite>true</overwrite>
+               <outputDirectory>${basedir}/target/repository</outputDirectory>
+               <resources>
+                 <resource>
