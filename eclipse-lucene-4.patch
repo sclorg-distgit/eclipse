@@ -1,0 +1,502 @@
+From f93bcfb45708895f90396552677f11881f342dc9 Mon Sep 17 00:00:00 2001
+From: Mat Booth <mat.booth@redhat.com>
+Date: Wed, 4 Mar 2015 15:10:27 +0000
+Subject: [PATCH] Port to Lucene 4.
+
+---
+ org.eclipse.help.base/META-INF/MANIFEST.MF         |  4 +-
+ .../eclipse/help/internal/search/Analyzer_en.java  | 27 +++++---
+ .../help/internal/search/DefaultAnalyzer.java      | 13 ++--
+ .../search/LowerCaseAndDigitsTokenizer.java        |  7 +-
+ .../eclipse/help/internal/search/QueryBuilder.java | 15 +++-
+ .../eclipse/help/internal/search/SearchIndex.java  | 81 ++++++++++------------
+ .../help/internal/search/SmartAnalyzer.java        | 14 ++--
+ .../help/internal/search/WordTokenStream.java      |  2 +
+ org.eclipse.ua.tests/META-INF/MANIFEST.MF          |  7 +-
+ .../help/search/PrebuiltIndexCompatibility.java    |  6 +-
+ 10 files changed, 94 insertions(+), 82 deletions(-)
+
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/META-INF/MANIFEST.MF b/eclipse.platform.ua/org.eclipse.help.base/META-INF/MANIFEST.MF
+index ee34c8e..fdef3e6 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/META-INF/MANIFEST.MF
++++ b/eclipse.platform.ua/org.eclipse.help.base/META-INF/MANIFEST.MF
+@@ -43,8 +43,8 @@ Require-Bundle: org.eclipse.ant.core;bundle-version="3.2.200";resolution:=option
+  org.eclipse.core.runtime;bundle-version="[3.11.0,4.0.0)",
+  org.eclipse.help;bundle-version="[3.5.0,4.0.0)";visibility:=reexport,
+  org.eclipse.core.expressions;bundle-version="[3.4.200,4.0.0)",
+- org.apache.lucene.analysis;bundle-version="[3.5.0,4.0.0)",
+- org.apache.lucene.core;bundle-version="[3.5.0,4.0.0)",
++ org.apache.lucene.analysis;bundle-version="[4.7.0,5.0.0)",
++ org.apache.lucene.core;bundle-version="[4.7.0,5.0.0)",
+  org.eclipse.core.net;bundle-version="1.2.200"
+ Import-Package: com.ibm.icu.text,
+  org.eclipse.equinox.http.jetty;resolution:=optional
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/Analyzer_en.java b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/Analyzer_en.java
+index a066aa4..6c41103 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/Analyzer_en.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/Analyzer_en.java
+@@ -11,10 +11,15 @@
+  *******************************************************************************/
+ package org.eclipse.help.internal.search;
+ import java.io.*;
+-import java.util.HashSet;
+-import java.util.Set;
++import java.util.ArrayList;
++import java.util.List;
+ 
+-import org.apache.lucene.analysis.*;
++import org.apache.lucene.analysis.Analyzer;
++import org.apache.lucene.analysis.TokenStream;
++import org.apache.lucene.analysis.Tokenizer;
++import org.apache.lucene.analysis.core.StopFilter;
++import org.apache.lucene.analysis.en.PorterStemFilter;
++import org.apache.lucene.analysis.util.CharArraySet;
+ import org.apache.lucene.util.Version;
+ /**
+  * Lucene Analyzer for English. LowerCaseTokenizer->StopFilter->PorterStemFilter
+@@ -27,18 +32,22 @@ public final class Analyzer_en extends Analyzer {
+ 		super();
+ 	}
+ 	/**
+-	 * Creates a TokenStream which tokenizes all the text in the provided
++	 * Creates a TokenStreamComponents which tokenizes all the text in the provided
+ 	 * Reader.
+ 	 */
+-	public final TokenStream tokenStream(String fieldName, Reader reader) {
+-		return new PorterStemFilter(new StopFilter(Version.LUCENE_30, new LowerCaseAndDigitsTokenizer(reader), getStopWords(), false));
++	@Override
++	public final TokenStreamComponents createComponents(String fieldName, Reader reader) {
++		CharArraySet stopWordsSet = StopFilter.makeStopSet(Version.LUCENE_47, getStopWords(), true);
++		Tokenizer source = new LowerCaseAndDigitsTokenizer(reader);
++		TokenStream filter = new PorterStemFilter(new StopFilter(Version.LUCENE_47, source, stopWordsSet));
++		return new TokenStreamComponents(source, filter);
+ 	}
+ 
+-	private Set<String> stopWords;
++	private List<String> stopWords;
+ 
+-	private Set<String> getStopWords() {
++	private List<String> getStopWords() {
+ 		if ( stopWords == null ) {
+-			stopWords = new HashSet<String>();
++			stopWords = new ArrayList<String>();
+ 			for (int i = 0; i < STOP_WORDS.length; i++) {
+ 			    stopWords.add(STOP_WORDS[i]);
+ 			}
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/DefaultAnalyzer.java b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/DefaultAnalyzer.java
+index 4109474..2718307 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/DefaultAnalyzer.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/DefaultAnalyzer.java
+@@ -17,8 +17,8 @@ import java.util.StringTokenizer;
+ import com.ibm.icu.text.BreakIterator;
+ 
+ import org.apache.lucene.analysis.Analyzer;
+-import org.apache.lucene.analysis.LowerCaseFilter;
+-import org.apache.lucene.analysis.TokenStream;
++import org.apache.lucene.analysis.Tokenizer;
++import org.apache.lucene.analysis.core.LowerCaseFilter;
+ import org.apache.lucene.util.Version;
+ import org.eclipse.help.internal.base.HelpBasePlugin;
+ 
+@@ -84,11 +84,14 @@ public final class DefaultAnalyzer extends Analyzer {
+ 	}
+ 
+ 	/**
+-	 * Creates a TokenStream which tokenizes all the text in the provided
++	 * Creates a TokenStreamComponents which tokenizes all the text in the provided
+ 	 * Reader.
+ 	 */
+-	public final TokenStream tokenStream(String fieldName, Reader reader) {
+-		return new LowerCaseFilter(Version.LUCENE_30, new WordTokenStream(fieldName, reader, locale));
++	@Override
++	public final TokenStreamComponents createComponents(String fieldName, Reader reader) {
++		Tokenizer source = new WordTokenStream(fieldName, reader, locale);
++		LowerCaseFilter filter = new LowerCaseFilter(Version.LUCENE_47, source);
++		return new TokenStreamComponents(source, filter);
+ 	}
+ 
+ 	/**
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/LowerCaseAndDigitsTokenizer.java b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/LowerCaseAndDigitsTokenizer.java
+index a475688..91e3cb4 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/LowerCaseAndDigitsTokenizer.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/LowerCaseAndDigitsTokenizer.java
+@@ -13,7 +13,7 @@ package org.eclipse.help.internal.search;
+ 
+ import java.io.*;
+ 
+-import org.apache.lucene.analysis.*;
++import org.apache.lucene.analysis.util.CharTokenizer;
+ import org.apache.lucene.util.Version;
+ 
+ /**
+@@ -22,13 +22,14 @@ import org.apache.lucene.util.Version;
+ public class LowerCaseAndDigitsTokenizer extends CharTokenizer {
+ 
+     public LowerCaseAndDigitsTokenizer(Reader input) {
+-        super(Version.LUCENE_30, input);
++        super(Version.LUCENE_47, input);
+     }
+     protected char normalize(char c) {
+         return Character.toLowerCase(c);
+     }
+ 
+-    protected boolean isTokenChar(char c) {
++    @Override
++    public boolean isTokenChar(int c) {
+         return Character.isLetterOrDigit(c);
+     }
+ 
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryBuilder.java b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryBuilder.java
+index 9cc690e..6449adb 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryBuilder.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryBuilder.java
+@@ -243,16 +243,25 @@ public class QueryBuilder {
+ 	private List<String> analyzeText(Analyzer analyzer, String fieldName, String text) {
+ 		List<String> words = new ArrayList<String>(1);
+ 		Reader reader = new StringReader(text);
+-		TokenStream tStream = analyzer.tokenStream(fieldName, reader);
+ 
+-		CharTermAttribute termAttribute = tStream.getAttribute(CharTermAttribute.class);
++		TokenStream tStream = null;
+ 		try {
++			tStream = analyzer.tokenStream(fieldName, reader);
++			tStream.reset();
++			CharTermAttribute termAttribute = (CharTermAttribute) tStream
++					.getAttribute(CharTermAttribute.class);
+ 			while (tStream.incrementToken()) {
+ 				String term = termAttribute.toString();
+ 				words.add(term);
+ 			}
+-			reader.close();
+ 		} catch (IOException ioe) {
++		} finally {
++			if (tStream != null) {
++				try {
++					tStream.close();
++				} catch (IOException e) {
++				}
++			}
+ 		}
+ 
+ 		return words;
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/SearchIndex.java b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/SearchIndex.java
+index 33c9476..5a46fe5 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/SearchIndex.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/SearchIndex.java
+@@ -33,17 +33,20 @@ import java.util.Set;
+ import java.util.zip.ZipEntry;
+ import java.util.zip.ZipInputStream;
+ 
+-import org.apache.lucene.analysis.LimitTokenCountAnalyzer;
++import org.apache.lucene.analysis.miscellaneous.LimitTokenCountAnalyzer;
+ import org.apache.lucene.document.Document;
+ import org.apache.lucene.document.Field;
++import org.apache.lucene.index.AtomicReader;
++import org.apache.lucene.index.DirectoryReader;
++import org.apache.lucene.index.DocsEnum;
+ import org.apache.lucene.index.IndexReader;
+ import org.apache.lucene.index.IndexWriter;
+-import org.apache.lucene.index.Term;
+-import org.apache.lucene.index.TermDocs;
+ import org.apache.lucene.index.IndexWriterConfig.OpenMode;
+ import org.apache.lucene.index.IndexWriterConfig;
+ import org.apache.lucene.index.LogByteSizeMergePolicy;
+ import org.apache.lucene.index.LogMergePolicy;
++import org.apache.lucene.index.SlowCompositeReaderWrapper;
++import org.apache.lucene.index.Term;
+ import org.apache.lucene.search.BooleanQuery;
+ import org.apache.lucene.search.IndexSearcher;
+ import org.apache.lucene.search.Query;
+@@ -283,7 +286,7 @@ public class SearchIndex implements IHelpSearchIndex {
+ 			indexedDocs.restore();
+ 			setInconsistent(true);
+ 			LimitTokenCountAnalyzer analyzer = new LimitTokenCountAnalyzer(analyzerDescriptor.getAnalyzer(), 1000000);
+-			IndexWriterConfig writerConfig = new IndexWriterConfig(org.apache.lucene.util.Version.LUCENE_31, analyzer);
++			IndexWriterConfig writerConfig = new IndexWriterConfig(org.apache.lucene.util.Version.LUCENE_47, analyzer);
+ 			writerConfig.setOpenMode(create ? OpenMode.CREATE : OpenMode.APPEND);
+ 			LogMergePolicy mergePolicy = new LogByteSizeMergePolicy();
+ 			mergePolicy.setMergeFactor(20);
+@@ -307,7 +310,7 @@ public class SearchIndex implements IHelpSearchIndex {
+ 			indexedDocs = new HelpProperties(INDEXED_DOCS_FILE, indexDir);
+ 			indexedDocs.restore();
+ 			setInconsistent(true);
+-			ir = IndexReader.open(luceneDirectory, false);
++			ir = DirectoryReader.open(luceneDirectory);
+ 			return true;
+ 		} catch (IOException e) {
+ 			HelpBasePlugin.logError("Exception occurred in search indexing at beginDeleteBatch.", e); //$NON-NLS-1$
+@@ -323,7 +326,7 @@ public class SearchIndex implements IHelpSearchIndex {
+ 			if (ir != null) {
+ 				ir.close();
+ 			}
+-			ir = IndexReader.open(luceneDirectory, false);
++			ir = DirectoryReader.open(luceneDirectory);
+ 			return true;
+ 		} catch (IOException e) {
+ 			HelpBasePlugin.logError("Exception occurred in search indexing at beginDeleteBatch.", e); //$NON-NLS-1$
+@@ -341,7 +344,7 @@ public class SearchIndex implements IHelpSearchIndex {
+ 	public IStatus removeDocument(String name) {
+ 		Term term = new Term(FIELD_NAME, name);
+ 		try {
+-			ir.deleteDocuments(term);
++			iw.deleteDocuments(term);
+ 			indexedDocs.remove(name);
+ 		} catch (IOException e) {
+ 			return new Status(IStatus.ERROR, HelpBasePlugin.PLUGIN_ID, IStatus.ERROR,
+@@ -379,7 +382,7 @@ public class SearchIndex implements IHelpSearchIndex {
+ 			 * know about this change. Close it so that it gets reloaded next search.
+ 			 */
+ 			if (searcher != null) {
+-				searcher.close();
++				searcher.getIndexReader().close();
+ 				searcher = null;
+ 			}
+ 			return true;
+@@ -411,7 +414,7 @@ public class SearchIndex implements IHelpSearchIndex {
+ 			 * know about this change. Close it so that it gets reloaded next search.
+ 			 */
+ 			if (searcher != null) {
+-				searcher.close();
++				searcher.getIndexReader().close();
+ 				searcher = null;
+ 			}
+ 			return true;
+@@ -525,18 +528,19 @@ public class SearchIndex implements IHelpSearchIndex {
+ 	}
+ 
+ 	public IStatus removeDuplicates(String name, String[] index_paths) {
+-		TermDocs hrefDocs = null;
+-		TermDocs indexDocs = null;
+-		Term hrefTerm = new Term(FIELD_NAME, name);
+ 		try {
++			AtomicReader ar = SlowCompositeReaderWrapper.wrap(ir);
++			DocsEnum hrefDocs = null;
++			DocsEnum indexDocs = null;
++			Term hrefTerm = new Term(FIELD_NAME, name);
+ 			for (int i = 0; i < index_paths.length; i++) {
+ 				Term indexTerm = new Term(FIELD_INDEX_ID, index_paths[i]);
+ 				if (i == 0) {
+-					hrefDocs = ir.termDocs(hrefTerm);
+-					indexDocs = ir.termDocs(indexTerm);
++					hrefDocs = ar.termDocsEnum(hrefTerm);
++					indexDocs = ar.termDocsEnum(indexTerm);
+ 				} else {
+-					hrefDocs.seek(hrefTerm);
+-					indexDocs.seek(indexTerm);
++					hrefDocs = ar.termDocsEnum(hrefTerm);
++					indexDocs = ar.termDocsEnum(indexTerm);
+ 				}
+ 				removeDocuments(hrefDocs, indexDocs);
+ 			}
+@@ -545,19 +549,6 @@ public class SearchIndex implements IHelpSearchIndex {
+ 					"IO exception occurred while removing duplicates of document " + name //$NON-NLS-1$
+ 							+ " from index " + indexDir.getAbsolutePath() + ".", //$NON-NLS-1$ //$NON-NLS-2$
+ 					ioe);
+-		} finally {
+-			if (hrefDocs != null) {
+-				try {
+-					hrefDocs.close();
+-				} catch (IOException e) {
+-				}
+-			}
+-			if (indexDocs != null) {
+-				try {
+-					indexDocs.close();
+-				} catch (IOException e) {
+-				}
+-			}
+ 		}
+ 		return Status.OK_STATUS;
+ 	}
+@@ -569,33 +560,33 @@ public class SearchIndex implements IHelpSearchIndex {
+ 	 * @param docs2
+ 	 * @throws IOException
+ 	 */
+-	private void removeDocuments(TermDocs doc1, TermDocs docs2) throws IOException {
+-		if (!doc1.next()) {
++	private void removeDocuments(DocsEnum doc1, DocsEnum docs2) throws IOException {
++		if (doc1.nextDoc() == DocsEnum.NO_MORE_DOCS) {
+ 			return;
+ 		}
+-		if (!docs2.next()) {
++		if (docs2.nextDoc() == DocsEnum.NO_MORE_DOCS) {
+ 			return;
+ 		}
+ 		while (true) {
+-			if (doc1.doc() < docs2.doc()) {
+-				if (!doc1.skipTo(docs2.doc())) {
+-					if (!doc1.next()) {
++			if (doc1.docID() < docs2.docID()) {
++				if (doc1.advance(docs2.docID()) == DocsEnum.NO_MORE_DOCS) {
++					if (doc1.nextDoc() == DocsEnum.NO_MORE_DOCS) {
+ 						return;
+ 					}
+ 				}
+-			} else if (doc1.doc() > docs2.doc()) {
+-				if (!docs2.skipTo(doc1.doc())) {
+-					if (!doc1.next()) {
++			} else if (doc1.docID() > docs2.docID()) {
++				if (docs2.advance(doc1.docID()) == DocsEnum.NO_MORE_DOCS) {
++					if (doc1.nextDoc() == DocsEnum.NO_MORE_DOCS) {
+ 						return;
+ 					}
+ 				}
+ 			}
+-			if (doc1.doc() == docs2.doc()) {
+-				ir.deleteDocument(doc1.doc());
+-				if (!doc1.next()) {
++			if (doc1.docID() == docs2.docID()) {
++				iw.tryDeleteDocument(ir, doc1.docID());
++				if (doc1.nextDoc() == DocsEnum.NO_MORE_DOCS) {
+ 					return;
+ 				}
+-				if (!docs2.next()) {
++				if (docs2.nextDoc() == DocsEnum.NO_MORE_DOCS) {
+ 					return;
+ 				}
+ 			}
+@@ -802,7 +793,7 @@ public class SearchIndex implements IHelpSearchIndex {
+ 	public void openSearcher() throws IOException {
+ 		synchronized (searcherCreateLock) {
+ 			if (searcher == null) {
+-				searcher = new IndexSearcher(IndexReader.open(luceneDirectory, false));
++				searcher = new IndexSearcher(DirectoryReader.open(luceneDirectory));
+ 			}
+ 		}
+ 	}
+@@ -820,7 +811,7 @@ public class SearchIndex implements IHelpSearchIndex {
+ 				if (searches.isEmpty()) {
+ 					if (searcher != null) {
+ 						try {
+-							searcher.close();
++							searcher.getIndexReader().close();
+ 						} catch (IOException ioe) {
+ 						}
+ 					}
+@@ -903,7 +894,7 @@ public class SearchIndex implements IHelpSearchIndex {
+ 		IndexWriter cleaner = null;
+ 		LimitTokenCountAnalyzer analyzer = new LimitTokenCountAnalyzer(analyzerDescriptor.getAnalyzer(), 10000);
+ 		try {
+-			cleaner = new IndexWriter(luceneDirectory, new IndexWriterConfig(org.apache.lucene.util.Version.LUCENE_31, analyzer).setOpenMode(
++			cleaner = new IndexWriter(luceneDirectory, new IndexWriterConfig(org.apache.lucene.util.Version.LUCENE_47, analyzer).setOpenMode(
+ 			        OpenMode.CREATE));
+ 		} catch (IOException ioe) {
+ 		} finally {
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/SmartAnalyzer.java b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/SmartAnalyzer.java
+index d0a7bb7..1b20d3b 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/SmartAnalyzer.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/SmartAnalyzer.java
+@@ -10,15 +10,13 @@
+  *******************************************************************************/
+ package org.eclipse.help.internal.search;
+ 
+-import java.io.*;
+-
+ import org.apache.lucene.analysis.*;
+ 
+ /**
+  * Smart Analyzer. Chooses underlying implementation based on the field which
+  * text is analyzed.
+  */
+-public final class SmartAnalyzer extends Analyzer {
++public final class SmartAnalyzer extends AnalyzerWrapper {
+ 	Analyzer pluggedInAnalyzer;
+ 	Analyzer exactAnalyzer;
+ 
+@@ -31,14 +29,14 @@ public final class SmartAnalyzer extends Analyzer {
+ 		this.exactAnalyzer = new DefaultAnalyzer(locale);
+ 	}
+ 	/**
+-	 * Creates a TokenStream which tokenizes all the text in the provided
+-	 * Reader. Delegates to DefaultAnalyzer when field used to search for exact
++	 * Delegates to DefaultAnalyzer when field used to search for exact
+ 	 * match, and to plugged-in analyzer for other fields.
+ 	 */
+-	public final TokenStream tokenStream(String fieldName, Reader reader) {
++	@Override
++	public final Analyzer getWrappedAnalyzer(String fieldName) {
+ 		if (fieldName != null && fieldName.startsWith("exact_")) { //$NON-NLS-1$
+-			return exactAnalyzer.tokenStream(fieldName, reader);
++			return exactAnalyzer;
+ 		}
+-		return pluggedInAnalyzer.tokenStream(fieldName, reader);
++		return pluggedInAnalyzer;
+ 	}
+ }
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/WordTokenStream.java b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/WordTokenStream.java
+index 0b70cf7..106775a 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/WordTokenStream.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/WordTokenStream.java
+@@ -35,6 +35,7 @@ public final class WordTokenStream extends Tokenizer {
+ 	 * Constructor
+ 	 */
+ 	public WordTokenStream(String fieldName, Reader reader, Locale locale) {
++		super(reader);
+ 		this.reader = reader;
+ 		boundary = BreakIterator.getWordInstance(locale);
+ 
+@@ -105,6 +106,7 @@ public final class WordTokenStream extends Tokenizer {
+ 	}
+ 
+ 	public void close() throws IOException {
++		super.close();
+ 		/// Unlikely to be called as this is a reused
+ 	    if (this.reader != null) {
+ 	    	this.reader.close();
+diff --git a/eclipse.platform.ua/org.eclipse.ua.tests/META-INF/MANIFEST.MF b/eclipse.platform.ua/org.eclipse.ua.tests/META-INF/MANIFEST.MF
+index a8177c3..cd99e8a 100644
+--- a/eclipse.platform.ua/org.eclipse.ua.tests/META-INF/MANIFEST.MF
++++ b/eclipse.platform.ua/org.eclipse.ua.tests/META-INF/MANIFEST.MF
+@@ -18,15 +18,14 @@
+  org.eclipse.ui.intro.universal,
+  org.eclipse.ui.forms,
+  org.eclipse.ui.browser;bundle-version="3.2.300",
++ org.apache.lucene.analysis;bundle-version="[4.7.0,5.0.0)",
++ org.apache.lucene.core;bundle-version="[4.7.0,5.0.0)",
+  org.eclipse.equinox.jsp.jasper;bundle-version="1.0.200",
+  org.eclipse.equinox.jsp.jasper.registry;bundle-version="1.0.100"
+ Bundle-ActivationPolicy: lazy
+ Bundle-Vendor: Eclipse.org
+ Import-Package: javax.servlet;version="3.1.0",
+- javax.servlet.http;version="3.1.0",
+- org.apache.lucene.index;core=split;version="[3.5.0,4.0.0)",
+- org.apache.lucene.search;core=split;version="[3.5.0,4.0.0)",
+- org.apache.lucene.store;core=split;version="[3.5.0,4.0.0)"
++ javax.servlet.http;version="3.1.0"
+ Bundle-RequiredExecutionEnvironment: JavaSE-1.6
+ Export-Package: org.eclipse.ua.tests,
+  org.eclipse.ua.tests.browser,
+diff --git a/eclipse.platform.ua/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/PrebuiltIndexCompatibility.java b/eclipse.platform.ua/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/PrebuiltIndexCompatibility.java
+index 640d4c9..8924fa7 100644
+--- a/eclipse.platform.ua/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/PrebuiltIndexCompatibility.java
++++ b/eclipse.platform.ua/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/PrebuiltIndexCompatibility.java
+@@ -24,7 +24,7 @@ import junit.framework.TestSuite;
+ import org.osgi.framework.Bundle;
+ 
+ import org.apache.lucene.index.CorruptIndexException;
+-import org.apache.lucene.index.IndexReader;
++import org.apache.lucene.index.DirectoryReader;
+ import org.apache.lucene.search.IndexSearcher;
+ import org.apache.lucene.search.Query;
+ import org.apache.lucene.search.TopDocs;
+@@ -157,7 +157,7 @@ public class PrebuiltIndexCompatibility extends TestCase {
+ 			IndexSearcher searcher = null;
+ 			try {
+ 				luceneDirectory = new NIOFSDirectory(new File(filePath));
+-				searcher = new IndexSearcher(IndexReader.open(luceneDirectory, true));
++				searcher = new IndexSearcher(DirectoryReader.open(luceneDirectory));
+ 				TopDocs hits = searcher.search(luceneQuery, 500);
+ 				assertEquals(hits.totalHits, 1);
+ 			} finally {
+@@ -167,7 +167,7 @@ public class PrebuiltIndexCompatibility extends TestCase {
+ 					} catch (IOException x) {
+ 					}
+ 				if (searcher != null)
+-					searcher.close();
++					searcher.getIndexReader().close();
+ 			}
+ 		} else {
+ 			fail("Cannot resolve to file protocol");
+-- 
+2.1.0
+
