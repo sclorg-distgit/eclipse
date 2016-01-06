@@ -1,0 +1,39 @@
+--- ./eclipse.jdt.debug/org.eclipse.jdt.launching/pom.xml.orig	2015-07-06 14:28:09.271323841 +0100
++++ ./eclipse.jdt.debug/org.eclipse.jdt.launching/pom.xml	2015-07-06 14:28:50.532805987 +0100
+@@ -25,7 +25,6 @@
+         <plugins>
+           <plugin>
+             <artifactId>maven-antrun-plugin</artifactId>
+-            <version> 1.7 </version>
+             <executions>
+               <execution>
+                 <id>compile-internal-jar</id>
+@@ -41,28 +40,6 @@
+                 </goals>
+               </execution>
+             </executions>
+-            <dependencies>
+-              <dependency>
+-                <groupId>bsf</groupId>
+-                <artifactId>bsf</artifactId>
+-                <version>2.4.0</version>
+-              </dependency>
+-              <dependency>
+-                <groupId>rhino</groupId>
+-                <artifactId>js</artifactId>
+-                <version>1.7R2</version>
+-              </dependency>
+-              <dependency>
+-                <groupId>org.apache.ant</groupId>
+-                <artifactId>ant-apache-bsf</artifactId>
+-                <version>1.8.3</version>
+-              </dependency>
+-              <dependency>
+-                <groupId>org.apache.ant</groupId>
+-                <artifactId>ant-nodeps</artifactId>
+-                <version>1.8.1</version>
+-              </dependency>
+-            </dependencies>
+           </plugin>
+         </plugins>
+       </build>
