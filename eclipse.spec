@@ -38,7 +38,7 @@ Epoch:                  1
 Summary:        An open, extensible IDE
 Name:           %{?scl_prefix}eclipse
 Version:        %{eclipse_version}
-Release:        10.6.bs2%{?dist}
+Release:        10.6.sc1%{?dist}
 License:        EPL
 URL:            http://www.eclipse.org/
 
