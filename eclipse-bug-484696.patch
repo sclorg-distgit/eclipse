@@ -1,0 +1,59 @@
+From 428cc3497ee844b9262d1bdc7cb09a8332eee87c Mon Sep 17 00:00:00 2001
+From: Eric Williams <ericwill@redhat.com>
+Date: Wed, 23 Dec 2015 09:55:43 -0500
+Subject: [PATCH] Bug 484696: [GTK] Empty repositories view links have white
+ backgrounds
+
+After bug 479998, an empty EGit repositories view still has mismatched
+label colors. It turns out in this case the background color of the
+parent composite was incorrect -- it should have been white (like on
+GTK3.14 and earlier) instead of gray.
+
+In this case the parent composite's background color is set to be that
+of the TreeViewer which will display the future repository branches,
+information, etc. The default color for Trees/Tables is white. The fixes
+for bug 479998 and bug 479998 introduced a small regression which set
+the default color of Table/Trees to be gray. The issue in this case does
+not lie with the labels but with the color of the parent composite. With
+Table/Trees returning their proper default background color (white, or
+COLOR_LIST_BACKGROUND), the EGit label issue is fixed.
+
+Tested on GTK3.18.6, 3.16, 3.14, and 2.24. AllNonBrowser JUnit tests
+pass on GTK3 and GTK2.
+
+Change-Id: I47fe95c1ad5fc87411c0f27ff344f6369c9aa0c6
+Signed-off-by: Eric Williams <ericwill@redhat.com>
+---
+ .../Eclipse SWT/gtk/org/eclipse/swt/widgets/Table.java   | 16 +++++++++++++---
+ .../Eclipse SWT/gtk/org/eclipse/swt/widgets/Tree.java    | 16 +++++++++++++---
+ 2 files changed, 26 insertions(+), 6 deletions(-)
+
+diff --git a/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Table.java b/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Table.java
+index 89bd414..2510efa 100644
+--- a/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Table.java	
++++ b/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Table.java	
+@@ -3138,7 +3148,7 @@ void setBackgroundColor (long /*int*/ context, long /*int*/ handle, GdkRGBA rgba
+ 	selectedBackground.green = (defaultColor.green & 0xFFFF) / (float)0xFFFF;
+ 	selectedBackground.blue = (defaultColor.blue & 0xFFFF) / (float)0xFFFF;
+ 	if (OS.GTK_VERSION >= OS.VERSION(3, 16, 0)) {
+-		String css = "GtkTreeView {background-color: " + gtk_rgba_to_css_string(rgba) + ";}\n"
++		String css = "GtkTreeView {background-color: " + gtk_rgba_to_css_string(background) + ";}\n"
+ 				+ "GtkTreeView:selected {background-color: " + gtk_rgba_to_css_string(selectedBackground) + ";}";
+ 		gtk_css_provider_load_from_css(context, css);
+ 	} else {
+diff --git a/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Tree.java b/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Tree.java
+index f8aaa6a..23cf3dc 100644
+--- a/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Tree.java	
++++ b/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Tree.java	
+@@ -3123,7 +3133,7 @@ void setBackgroundColor (long /*int*/ context, long /*int*/ handle, GdkRGBA rgba
+ 	selectedBackground.green = (defaultColor.green & 0xFFFF) / (float)0xFFFF;
+ 	selectedBackground.blue = (defaultColor.blue & 0xFFFF) / (float)0xFFFF;
+ 	if (OS.GTK_VERSION >= OS.VERSION(3, 16, 0)) {
+-		String css = "GtkTreeView {background-color: " + gtk_rgba_to_css_string(rgba) + ";}\n"
++		String css = "GtkTreeView {background-color: " + gtk_rgba_to_css_string(background) + ";}\n"
+ 				+ "GtkTreeView:selected {background-color: " + gtk_rgba_to_css_string(selectedBackground) + ";}";
+ 		gtk_css_provider_load_from_css(context, css);
+ 	} else {
+-- 
+2.5.0
+

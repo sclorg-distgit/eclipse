@@ -1,4 +1,4 @@
-From 0b0f725bdcf10918a25321a66c0abd4ddbbdd870 Mon Sep 17 00:00:00 2001
+From aabcf5acff194b807c4d0bcf68425c3452c90339 Mon Sep 17 00:00:00 2001
 From: Roland Grunberg <rgrunber@redhat.com>
 Date: Fri, 12 Sep 2014 10:27:14 -0400
 Subject: [PATCH] Add support for regenerating bundle versions for symlinks.
@@ -26,15 +26,14 @@ index d88d0a6..07fe087 100644
   org.osgi.framework.namespace;version="1.0.0",
   org.osgi.framework.wiring;version="1.2.0",
 diff --git rt.equinox.p2/bundles/org.eclipse.equinox.simpleconfigurator/src/org/eclipse/equinox/internal/simpleconfigurator/utils/SimpleConfiguratorUtils.java rt.equinox.p2/bundles/org.eclipse.equinox.simpleconfigurator/src/org/eclipse/equinox/internal/simpleconfigurator/utils/SimpleConfiguratorUtils.java
-index ab69b88..12e4d89 100644
+index ab69b88..d6bf121 100644
 --- rt.equinox.p2/bundles/org.eclipse.equinox.simpleconfigurator/src/org/eclipse/equinox/internal/simpleconfigurator/utils/SimpleConfiguratorUtils.java
 +++ rt.equinox.p2/bundles/org.eclipse.equinox.simpleconfigurator/src/org/eclipse/equinox/internal/simpleconfigurator/utils/SimpleConfiguratorUtils.java
-@@ -13,9 +13,15 @@ package org.eclipse.equinox.internal.simpleconfigurator.utils;
+@@ -13,9 +13,14 @@ package org.eclipse.equinox.internal.simpleconfigurator.utils;
  
  import java.io.*;
  import java.net.*;
-+import java.nio.file.Files;
-+import java.nio.file.Paths;
++import java.nio.file.*;
  import java.util.*;
 +import java.util.jar.JarFile;
 +import java.util.zip.ZipEntry;
@@ -46,14 +45,15 @@ index ab69b88..12e4d89 100644
  
  public class SimpleConfiguratorUtils {
  
-@@ -283,6 +289,15 @@ public class SimpleConfiguratorUtils {
+@@ -283,6 +288,16 @@ public class SimpleConfiguratorUtils {
  		String symbolicName = tok.nextToken().trim();
  		String version = tok.nextToken().trim();
  		URI location = parseLocation(tok.nextToken().trim());
 +		if (base != null) {
 +			URI absLoc = URIUtil.append(base, location.toString());
++			Path absPath = Paths.get(absLoc);
 +			// Symbolic links may change outside Eclipse so regenerate proper bundle version.
-+			if (Files.isSymbolicLink(Paths.get(absLoc))) {
++			if (Files.isSymbolicLink(absPath) && absPath.toFile().isFile()) {
 +				// We can't depend on org.eclipse.equinox.internal.frameworkadmin.utils.Utils
 +				Dictionary<String, String> manifest = getOSGiManifest(absLoc);
 +				version = manifest.get(Constants.BUNDLE_VERSION);
@@ -157,5 +157,5 @@ index ab69b88..12e4d89 100644
 +	}
  }
 -- 
-2.1.0
+2.5.0
 

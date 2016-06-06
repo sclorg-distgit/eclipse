@@ -199,7 +199,7 @@ index c6d5da0..e76f33f 100644
 +      <import plugin="javax.servlet" />
 +      <import plugin="javax.servlet.jsp" />
 +      <import plugin="org.apache.commons.logging" />
-+      <import plugin="org.apache.lucene.analysis" />
++      <import plugin="org.apache.lucene.analyzers-common" />
 +      <import plugin="org.apache.lucene.core" />
 +      <import plugin="org.eclipse.jetty.continuation" />
 +      <import plugin="org.eclipse.jetty.http" />
@@ -385,7 +385,7 @@ index 6f6526b..c05d703 100644
 +  <bundle id="javax.servlet-api" />
 +  <bundle id="javax.servlet.jsp" />
 +  <bundle id="org.apache.commons.logging" />
-+  <bundle id="org.apache.lucene.analysis" />
++  <bundle id="org.apache.lucene.analyzers-common" />
 +  <bundle id="org.apache.lucene.core" />
 +  <bundle id="org.eclipse.jetty.continuation" />
 +  <bundle id="org.eclipse.jetty.http" />

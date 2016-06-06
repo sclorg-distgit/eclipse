@@ -122,7 +122,7 @@
      <antcall target="runSuite" />
      <antcall target="genResults" />
    </target>
-@@ -1430,6 +1370,15 @@
+@@ -1431,6 +1371,15 @@
          value="end longRunningTests" />
      </antcall>
  
@@ -138,7 +138,7 @@
    </target>
  
    <!--
-@@ -1471,7 +1420,6 @@
+@@ -1472,7 +1421,6 @@
      <antcall target="e4CssSwt" />
      <antcall target="e4UI" />
      <antcall target="equinoxds" />
@@ -146,7 +146,7 @@
      <antcall target="bidi" />
      <antcall target="ltkuirefactoringtests" />
      <antcall target="ltkcorerefactoringtests" />
-@@ -1485,7 +1433,6 @@
+@@ -1486,7 +1434,6 @@
      <antcall target="osgi" />
      <antcall target="coreresources" />
      <antcall target="equinoxp2" />
@@ -154,7 +154,7 @@
      <antcall target="jface" />
      <antcall target="ui" />
      <antcall target="uiperformance" />
-@@ -1568,7 +1515,7 @@
+@@ -1569,7 +1516,7 @@
      <property
        name="message"
        value="no message given by caller" />
@@ -165,7 +165,7 @@
    <!--
 --- eclipse.platform.releng.tychoeclipsebuilder/eclipse-junit-tests/src/main/scripts/runtests.sh.orig	2014-05-26 17:04:22.000000000 +0300
 +++ eclipse.platform.releng.tychoeclipsebuilder/eclipse-junit-tests/src/main/scripts/runtests.sh	2014-05-26 19:17:46.622004452 +0300
-@@ -1,5 +1,46 @@
+@@ -1,5 +1,72 @@
  #!/usr/bin/env bash
  
 +function findXvncAndSetDisplay() {
@@ -200,6 +200,32 @@
 +    DISPLAY=`$HOST`:$port
 +}
 +
++function setArch() {
++    if [ "x$buildArch" = "x" ]
++    then
++        if uname -m > /dev/null 2>&1; then
++            arch=`uname -m`
++        else
++            arch=`uname -p`
++        fi
++        # Massage arch for Eclipse-uname differences
++        case $arch in
++            i[0-9]*86)
++                arch=x86 ;;
++            ia64)
++                arch=ia64 ;;
++            ppc)
++                arch=ppc ;;
++            x86_64)
++                arch=x86_64 ;;
++            *)
++                echo "Unrecognized architecture:  $arch" 1>&2
++                exit 1 ;;
++        esac
++        echo >&2 "Architecture not specified.  Assuming host architecture: $arch"
++    fi
++}
++
 +function cleanupXvnc() {
 +    # Clean up if we used Xvnc
 +    if [ -e Xvnc.cfg ]
@@ -212,7 +238,43 @@
  # This file should never exist or be needed for production machine,
  # but allows an easy way for a "local user" to provide this file
  # somewhere on the search path ($HOME/bin is common),
-@@ -92,59 +159,31 @@ fi
+@@ -32,35 +99,6 @@
+ fi
+ echo "jvm: $jvm"
+ 
+-# On production, WORKSPACE is the 'hudson' workspace.
+-# But, if running standalone, we'll assume "up two" from current directoy
+-WORKSPACE=${WORKSPACE:-"../../.."};
+-
+-stableEclipseSDK=${stableEclipseSDK:-eclipse-SDK-4.5.1-linux-gtk-x86_64.tar.gz}
+-stableEclipseInstallLocation=${stableEclipseInstallLocation:-${WORKSPACE}/org.eclipse.releng.basebuilder}
+-
+-# Note: test.xml will "reinstall" fresh install of what we are testing,
+-# but we do need an install for initial launcher, and, later, need one for a
+-# stable version of p2 director. For both purposes, we
+-# we should use "old and stable" version,
+-# which needs to be installed in ${stableEclipseInstallLocation}.
+-# Note: for production tests, we use ${WORKSPACE}/org.eclipse.releng.basebuilder,
+-# for historical reasons. The "true" (old) basebuilder does not have an 'eclipse' directory;
+-# plugins is directly under org.eclipse.releng.basebuilder.
+-if [[ ! -r ${stableEclipseInstallLocation} || ! -r "${stableEclipseInstallLocation}/eclipse" ]]
+-then
+-  mkdir -p ${stableEclipseInstallLocation}
+-  tar -xf ${stableEclipseSDK} -C ${stableEclipseInstallLocation}
+-fi
+-
+-launcher=$(find ${stableEclipseInstallLocation} -name "org.eclipse.equinox.launcher_*.jar" )
+-if [ -z "${launcher}" ]
+-then
+-  echo "ERROR: launcher not found in ${stableEclipseInstallLocation}"
+-  exit 1
+-fi
+-echo "launcher: $launcher"
+-
+ # define, but null out variables we expect on the command line
+ # operating system, windowing system and architecture variables
+ os=
+@@ -135,59 +173,37 @@
  #necessary when invoking this script through rsh
  cd $dir
  
@@ -237,20 +299,13 @@
  launcher=`ls eclipse/plugins/org.eclipse.equinox.launcher_*.jar`
 +findXvncAndSetDisplay
 +export JAVA_HOME=/usr/lib/jvm/java-1.8.0/jre
++setArch
 +export ANT_HOME=@USR@/share/ant
-+@USR@/bin/./ant \
-+-file "${testslocation}/test.xml" $tests \
-+-Dws=$ws -Dos=$os -Darch=$arch -Dos.arch=$arch \
-+-DbuildId=v20120903-1347 -Dbasedir="/tmp/eclipse-tests-directory" \
-+-DruntimeArchive="eclipse-SDK-temp-linux-gtk-x86_64.tar.gz" \
-+-DrepoLocation="${testslocation}" \
-+-Dorg.eclipse.test="3.3.100" \
-+-D$installmode=true $properties
  
--echo " = = = Start list environment variables in effect = = = ="
--env
--echo " = = = End list environment variables in effect = = = ="
--
+ echo " = = = Start list environment variables in effect = = = ="
+ env
+ echo " = = = End list environment variables in effect = = = ="
+ 
 -# make sure there is a window manager running. See bug 379026
 -# we should not have to, but may be a quirk/bug of hudson setup
 -# assuming metacity attaches to "current" display by default (which should have
@@ -293,3 +348,58 @@
 -else
 -  $vmcmd -Dosgi.os=$os -Dosgi.ws=$ws -Dosgi.arch=$arch  -jar $launcher -data workspace -application org.eclipse.ant.core.antRunner -file ${PWD}/test.xml $tests -Dws=$ws -Dos=$os -Darch=$arch -D$installmode=true $properties -logger org.apache.tools.ant.DefaultLogger
 -fi
++@USR@/bin/./ant \
++-file "${testslocation}/test.xml" $tests \
++-Dws=$ws -Dos=$os -Darch=$arch -Dos.arch=$arch \
++-DbuildId=v20120903-1347 -Dbasedir="/tmp/eclipse-tests-directory" \
++-DruntimeArchive="eclipse-SDK-temp-linux-gtk-x86_64.tar.gz" \
++-DrepoLocation="${testslocation}" \
++-Dorg.eclipse.test="3.3.200" \
++-D$installmode=true $properties
++
+--- eclipse.platform.releng.tychoeclipsebuilder/eclipse-junit-tests/src/main/scripts/test.xml.orig	2016-02-17 00:50:39.910394827 +0000
++++ eclipse.platform.releng.tychoeclipsebuilder/eclipse-junit-tests/src/main/scripts/test.xml	2016-02-17 00:54:04.625884958 +0000
+@@ -169,7 +169,9 @@
+   <target
+     name="setup-zip"
+     description="Reinstall the test Eclipse installation if specified by user">
+-    <delete dir="${install}" />
++    <delete removeNotFollowedSymlinks="true" failonerror="false">
++      <fileset dir="${install}" followsymlinks="false"/>
++    </delete>
+     <mkdir dir="${install}" />
+     <exec
+       dir="."
+@@ -187,7 +189,9 @@
+     <property
+       name="currentDir"
+       value="${basedir}" />
+-    <delete dir="${install}" />
++    <delete removeNotFollowedSymlinks="true" failonerror="false">
++      <fileset dir="${install}" followsymlinks="false"/>
++    </delete>
+     <mkdir dir="${install}" />
+     <exec
+       dir="${install}"
+@@ -233,7 +237,9 @@
+   <target
+     name="platform-zip"
+     description="Reinstall the test Eclipse installation if specified by user">
+-    <delete dir="${platformLocation}" />
++    <delete removeNotFollowedSymlinks="true" failonerror="false">
++      <fileset dir="${platformLocation}" followsymlinks="false"/>
++    </delete>
+     <mkdir dir="${platformLocation}" />
+     <exec
+       dir="${platformLocation}"
+@@ -246,7 +252,9 @@
+   <target
+     name="platform-tar.gz"
+     description="Reinstall the test Eclipse installation if specified by user">
+-    <delete dir="${platformLocation}" />
++    <delete removeNotFollowedSymlinks="true" failonerror="false">
++      <fileset dir="${platformLocation}" followsymlinks="false"/>
++    </delete>
+     <mkdir dir="${platformLocation}" />
+     <exec
+       dir="${platformLocation}"

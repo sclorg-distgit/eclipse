@@ -2,7 +2,7 @@ diff --git a/eclipse.platform.swt.binaries/pom.xml b/eclipse.platform.swt.binari
 index 7dd0536..66d79ee 100644
 --- a/eclipse.platform.swt.binaries/pom.xml
 +++ b/eclipse.platform.swt.binaries/pom.xml
-@@ -53,6 +53,8 @@
+@@ -63,6 +63,8 @@
      <module>bundles/org.eclipse.swt.gtk.linux.ppc64le</module>
      <module>bundles/org.eclipse.swt.gtk.linux.s390</module>
      <module>bundles/org.eclipse.swt.gtk.linux.s390x</module>
@@ -15,7 +15,7 @@ diff --git a/rt.equinox.framework/pom.xml b/rt.equinox.framework/pom.xml
 index b46cdc6..0fb36a5 100644
 --- a/rt.equinox.framework/pom.xml
 +++ b/rt.equinox.framework/pom.xml
-@@ -54,6 +54,8 @@
+@@ -64,6 +64,8 @@
      <module>bundles/org.eclipse.equinox.launcher.gtk.aix.ppc</module>
      <module>bundles/org.eclipse.equinox.launcher.gtk.aix.ppc64</module>
      <module>bundles/org.eclipse.equinox.launcher.gtk.hpux.ia64</module>

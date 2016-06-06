@@ -1,0 +1,62 @@
+From d0a9c478604ba6a32016a631c6d0b05ac839dffe Mon Sep 17 00:00:00 2001
+From: Alexander Kurtakov
+Date: Fri, 12 Feb 2016 11:57:13 +0200
+Subject: Bug 487712 - Snippet128 crashes on Fedora
+
+Bug in ProgressBar due to calling gdk_window_process_updates which sends
+expose events for redrawing purposes. But this event is implementation
+detail in GTK3 and shouldn't be used from outside and playing with it
+leads to race conditions with webkitgtk.
+Also GtkProgressBar redraws properly now so trying to force redraw is
+useless on GTK 3.
+
+Change-Id: I22373b9e33c83759e0ff9dc2d0600fe39cacb91e
+Signed-off-by: Alexander Kurtakov <akurtako@redhat.com>
+---
+ .../gtk/org/eclipse/swt/widgets/ProgressBar.java   | 24 ++++++++++++----------
+ 1 file changed, 13 insertions(+), 11 deletions(-)
+
+diff --git a/eclipse.platform.swt/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/ProgressBar.java b/eclipse.platform.swt/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/ProgressBar.java
+index d6749ef..cbdd8c7 100644
+--- a/eclipse.platform.swt/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/ProgressBar.java	
++++ b/eclipse.platform.swt/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/ProgressBar.java	
+@@ -1,5 +1,5 @@
+ /*******************************************************************************
+- * Copyright (c) 2000, 2013 IBM Corporation and others.
++ * Copyright (c) 2000, 2016 IBM Corporation and others.
+  * All rights reserved. This program and the accompanying materials
+  * are made available under the terms of the Eclipse Public License v1.0
+  * which accompanies this distribution, and is available at
+@@ -301,16 +301,18 @@ void updateBar (int selection, int minimum, int maximum) {
+ 
+ 	double fraction = minimum == maximum ? 1 : (double)(selection - minimum) / (maximum - minimum);
+ 	OS.gtk_progress_bar_set_fraction (handle, fraction);
+-	/*
+-	* Feature in GTK.  The progress bar does
+-	* not redraw right away when a value is
+-	* changed.  This is not strictly incorrect
+-	* but unexpected.  The fix is to force all
+-	* outstanding redraws to be delivered.
+-	*/
+-	long /*int*/ window = paintWindow ();
+-	OS.gdk_window_process_updates (window, false);
+-	OS.gdk_flush ();
++	if (!OS.GTK3) {
++		/*
++		* Feature in GTK.  The progress bar does
++		* not redraw right away when a value is
++		* changed.  This is not strictly incorrect
++		* but unexpected.  The fix is to force all
++		* outstanding redraws to be delivered.
++		*/
++		long /*int*/ window = paintWindow ();
++		OS.gdk_window_process_updates (window, false);
++		OS.gdk_flush ();
++	}
+ }
+ 
+ void gtk_orientable_set_orientation (long /*int*/ pbar, int orientation) {
+-- 
+cgit v0.11.2-4-g4a35
+
+

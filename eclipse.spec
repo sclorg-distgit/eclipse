@@ -2,6 +2,8 @@
 %{!?scl:%global pkg_name %{name}}
 %{?java_common_find_provides_and_requires}
 
+%global baserelease 4
+
 # Set to 1 to build Eclipse without circular dependency to eclipse-pde, API
 # generation and docs will not be built and a second run will be required, but
 # this is a way to bootstrap Eclipse on secondary archs.
@@ -11,34 +13,46 @@ Epoch:                  1
 
 %global eclipse_major   4
 %global eclipse_minor   5
-%global eclipse_micro   0
-%global eb_commit       27693f414e65ae520724dca2fa5c682fa3256d29
-%global eclipse_tag     R4_5
+%global eclipse_micro   2
+%global eb_commit       d40359cd541c521122c962a23be90d8490deea83
+%global eclipse_tag     S4_5_2_RC4
 %global eclipse_version %{eclipse_major}.%{eclipse_minor}.%{eclipse_micro}
+
+%if 0%{?fedora} >= 24
+%global _jetty_version  9.3.7
+%global _lucene_version 5.5.0
+%else
+%if 0%{?fedora} >= 23
+%global _jetty_version  9.3.0
+%global _lucene_version 5.3.0
+%else
 %global _jetty_version  9.0.3
+%global _lucene_version 5.4.1
+%endif
+%endif
 
 %ifarch %{ix86}
-    %define eclipse_arch x86
+    %global eclipse_arch x86
 %endif
 %ifarch %{arm}
-    %define eclipse_arch arm
+    %global eclipse_arch arm
 %endif
 %ifarch ppc64 ppc64p7
-    %define eclipse_arch ppc64
+    %global eclipse_arch ppc64
 %endif
 %ifarch s390 s390x ppc x86_64 aarch64 ppc64le
-    %define eclipse_arch %{_arch}
+    %global eclipse_arch %{_arch}
 %endif
 
 # See fedora-devel-java-list discussion in September 2008.
 #
 # Prevent brp-java-repack-jars from being run.
-%define __jar_repack %{nil}
+%global __jar_repack %{nil}
 
 Summary:        An open, extensible IDE
 Name:           %{?scl_prefix}eclipse
 Version:        %{eclipse_version}
-Release:        10.6.sc1%{?dist}
+Release:        5.%{baserelease}%{?dist}
 License:        EPL
 URL:            http://www.eclipse.org/
 
@@ -88,9 +102,6 @@ Patch13:        %{pkg_name}-fix-dropins.patch
 
 Patch14:        %{pkg_name}-bug-386377.patch
 
-# Resolving the target platform requires too many changes, so don't use it
-Patch15:        %{pkg_name}-no-target-platform.patch
-
 # org.mockito -> org.mockito.mockito-core
 Patch16:        %{pkg_name}-mockito.patch
 
@@ -115,39 +126,59 @@ Patch19:        %{pkg_name}-support-symlink-bundles.patch
 Patch20:        %{pkg_name}-feature-plugins-to-category-ius.patch
 Patch21:        disable-non-linux.patch
 
-# Port eclipse user assistance to lucene 4
-Patch22:        %{pkg_name}-lucene-4.patch
+%if 0%{?fedora} == 22
+# Port to Lucene 4
+Patch22: eclipse-lucene-4.patch
+%else
+# Port to Lucene 5
+Patch22: eclipse-lucene-5.patch
+%endif
 
 Patch23: %{pkg_name}-javaxannotation-import.patch
 Patch24: %{pkg_name}-fix-tests.patch
+Patch25: %{pkg_name}-adjust-droplets.patch
 
-Patch25: eclipse-fix-ant-version.patch
+# Fix visual glitches when on recent GTK3
+# These are backported from upstream master
+Patch26: eclipse-editor-scrolling-fix.patch
+Patch27: eclipse-bug-480986.patch
+Patch28: eclipse-bug-466314.patch
+Patch29: eclipse-bug-481122.patch
+Patch30: eclipse-bug-466500.patch
+Patch31: eclipse-bug-478962.patch
+Patch33: eclipse-bug-486368.patch
+Patch34: eclipse-bug-484696.patch
+Patch35: eclipse-bug-477487.patch
+Patch36: eclipse-bug-487712.patch
+Patch37: eclipse-bug-488226.patch
+Patch38: eclipse-bug-489953.patch
 
-Patch26: eclipse-fix-antrun-execution.patch
+Patch39: eclipse-fix-ant-version.patch
+Patch40: eclipse-fix-antrun-execution.patch
 
 BuildRequires: rsync
 BuildRequires: make, %{?scl_prefix}gcc
-BuildRequires: glib2-devel
-BuildRequires: nspr-devel
-BuildRequires: mesa-libGL-devel
-BuildRequires: mesa-libGLU-devel
-BuildRequires: cairo >= 1.0
+BuildRequires: pkgconfig(glib-2.0)
+BuildRequires: pkgconfig(nspr)
+BuildRequires: pkgconfig(glu)
+BuildRequires: pkgconfig(gl)
+BuildRequires: pkgconfig(cairo)
 BuildRequires: zip, unzip
 BuildRequires: desktop-file-utils
 BuildRequires: java-1.8.0-openjdk-devel
-BuildRequires: libXt-devel
-BuildRequires: libXtst-devel
-BuildRequires: gtk2-devel
+BuildRequires: pkgconfig(xt)
+BuildRequires: pkgconfig(xtst)
+BuildRequires: pkgconfig(gtk+-2.0)
 %if 0%{?fedora}
-BuildRequires: gtk3-devel
-BuildRequires: webkitgtk-devel
-BuildRequires: webkitgtk4-devel
+BuildRequires: pkgconfig(gtk+-3.0)
+BuildRequires: pkgconfig(webkit-1.0)
+BuildRequires: pkgconfig(webkit2gtk-4.0)
 %else
 %if 0%{?rhel} >= 7
-BuildRequires: gtk3-devel
-BuildRequires: webkitgtk3-devel
+BuildRequires: pkgconfig(gtk+-3.0)
+BuildRequires: pkgconfig(webkitgtk-3.0)
 %else
-BuildRequires: webkitgtk-devel
+BuildRequires: pkgconfig(webkit-1.0)
 %endif
 %endif
 BuildRequires: %{?scl_prefix}icu4j >= 1:54.1.1-2
@@ -167,32 +198,34 @@ BuildRequires: %{?scl_prefix_java_common}osgi(org.eclipse.jetty.continuation) >=
 BuildRequires: %{?scl_prefix_java_common}osgi(org.eclipse.jetty.io) >= %{_jetty_version}
 BuildRequires: %{?scl_prefix_java_common}osgi(org.eclipse.jetty.security) >= %{_jetty_version}
 BuildRequires: %{?scl_prefix_java_common}osgi(org.eclipse.jetty.servlet) >= %{_jetty_version}
-BuildRequires: %{?scl_prefix_java_common}lucene-core >= 4.8.0
-BuildRequires: %{?scl_prefix_java_common}lucene-analysis >= 4.8.0
+BuildRequires: %{?scl_prefix_java_common}lucene5-core >= %{_lucene_version}
+BuildRequires: %{?scl_prefix_java_common}lucene5-analysis >= %{_lucene_version}
+BuildRequires: %{?scl_prefix_java_common}lucene5-queryparser >= %{_lucene_version}
+BuildRequires: %{?scl_prefix_java_common}lucene5-analyzers-smartcn >= %{_lucene_version}
 BuildRequires: %{?scl_prefix_java_common}junit >= 4.11-8.15
 BuildRequires: %{?scl_prefix_java_common}hamcrest >= 0:1.3-6.14
 BuildRequires: %{?scl_prefix}sat4j >= 2.3.5-1
 BuildRequires: %{?scl_prefix_java_common}objectweb-asm5 >= 5.0.3-1
-BuildRequires: sac
+BuildRequires: %{?scl_prefix}sac >= 1.3-12
 BuildRequires: %{?scl_prefix_java_common}batik >= 1.8-0.12
 BuildRequires: %{?scl_prefix_java_common}xml-commons-apis >= 1.4.01-12
 BuildRequires: %{?scl_prefix_java_common}atinject >= 1-13.20100611svn86.10
 BuildRequires: %{?scl_prefix_java_common}atinject-tck >= 1-13.20100611svn86.10
-BuildRequires: %{?scl_prefix}tycho >= 0.22.0-15
-BuildRequires: %{?scl_prefix}tycho-extras >= 0.22
+BuildRequires: %{?scl_prefix}tycho >= 0.23.0
+BuildRequires: %{?scl_prefix}tycho-extras >= 0.23.0
 BuildRequires: %{?scl_prefix}cbi-plugins
-BuildRequires: %{?scl_prefix}eclipse-ecf-core >= 3.10.0-4.2
-BuildRequires: %{?scl_prefix}eclipse-emf-core >= 1:2.11.0-4.2
+BuildRequires: %{?scl_prefix}eclipse-ecf-core >= 3.12.2-2
+BuildRequires: %{?scl_prefix}eclipse-emf-core >= 1:2.11.2-1
 BuildRequires: %{?scl_prefix}eclipse-license
 BuildRequires: %{?scl_prefix_java_common}glassfish-jsp-api >= 2.2.1-4
 BuildRequires: %{?scl_prefix_java_common}glassfish-jsp >= 2.2.5
 BuildRequires: %{?scl_prefix}glassfish-servlet-api >= 3.1.0
 BuildRequires: %{?scl_prefix}glassfish-el >= 3.0.0
 BuildRequires: %{?scl_prefix_maven}xml-maven-plugin
-BuildRequires: %{?scl_prefix_java_common}httpcomponents-core >= 4.3.3
-BuildRequires: %{?scl_prefix_java_common}httpcomponents-client >= 4.3.6
+BuildRequires: %{?scl_prefix_java_common}httpcomponents-core
+BuildRequires: %{?scl_prefix_java_common}httpcomponents-client
 BuildRequires: %{?scl_prefix_java_common}xz-java
-BuildRequires: %{?scl_prefix}mockito >= 1.10.19-3.5
+BuildRequires: %{?scl_prefix}mockito >= 1.10.19-3.7
 BuildRequires: %{?scl_prefix}osgi(osgi.annotation)
 BuildRequires: %{?scl_prefix}glassfish-annotation-api
 %if ! %{bootstrap}
@@ -210,13 +243,8 @@ everything in between.
 
 %package     swt
 Summary:        SWT Library for GTK+
+%if 0%{?rhel}
 Requires:       %{?scl_prefix_java_common}jpackage-utils
-%if 0%{?fedora}
-Requires:       gtk2
-Requires:       gtk3
-Requires:       webkitgtk
-Requires:       webkitgtk4
-%else
 %if 0%{?rhel} >= 7
 Requires:       gtk3
 Requires:       webkitgtk3
@@ -258,15 +286,17 @@ Requires: %{?scl_prefix_java_common}osgi(org.eclipse.jetty.security) >= %{_jetty
 Requires: %{?scl_prefix_java_common}osgi(org.eclipse.jetty.servlet) >= %{_jetty_version}
 Requires: %{?scl_prefix}osgi(javax.annotation-api)
 Requires: %{?scl_prefix_java_common}jsch >= 0.1.46-2
-Requires: %{?scl_prefix_java_common}lucene-core >= 4.8.0
-Requires: %{?scl_prefix_java_common}lucene-analysis >= 4.8.0
+Requires: %{?scl_prefix_java_common}lucene5-core >= %{_lucene_version}
+Requires: %{?scl_prefix_java_common}lucene5-analysis >= %{_lucene_version}
+Requires: %{?scl_prefix_java_common}lucene5-queryparser >= %{_lucene_version}
+Requires: %{?scl_prefix_java_common}lucene5-analyzers-smartcn >= %{_lucene_version}
 Requires: %{?scl_prefix}sat4j >= 2.3.5-1
-Requires: sac
+Requires: %{?scl_prefix}sac >= 1.3-12
 Requires: %{?scl_prefix_java_common}batik >= 1.8-0.12
 Requires: %{?scl_prefix_java_common}xml-commons-apis >= 1.4.01-12
 Requires: %{?scl_prefix_java_common}atinject >= 1-13.20100611svn86.10
-Requires: %{?scl_prefix}eclipse-ecf-core >= 3.10.0-4.2
-Requires: %{?scl_prefix}eclipse-emf-core >= 1:2.11.0-4.2
+Requires: %{?scl_prefix}eclipse-ecf-core >= 3.12.2-2
+Requires: %{?scl_prefix}eclipse-emf-core >= 1:2.11.2-1
 Requires: %{?scl_prefix_java_common}glassfish-jsp-api >= 2.2.1-4
 Requires: %{?scl_prefix_java_common}glassfish-jsp >= 2.2.5
 Requires: %{?scl_prefix}glassfish-servlet-api >= 3.1.0
@@ -274,8 +304,8 @@ Requires: %{?scl_prefix}glassfish-el >= 3.0.0
 Requires: %{?scl_prefix}icu4j >= 1:54.1.1-2
 Requires: %{name}-swt = %{epoch}:%{eclipse_version}-%{release}
 Requires: %{name}-equinox-osgi = %{epoch}:%{eclipse_version}-%{release}
-Requires: %{?scl_prefix_java_common}httpcomponents-core >= 4.3.3
-Requires: %{?scl_prefix_java_common}httpcomponents-client >= 4.3.6
+Requires: %{?scl_prefix_java_common}httpcomponents-core
+Requires: %{?scl_prefix_java_common}httpcomponents-client
 Requires: %{?scl_prefix_java_common}xz-java
 
 %description    platform
@@ -284,6 +314,7 @@ Java Development Tools or the Plugin Development Environment.
 
 %package        jdt
 Summary:        Eclipse Java Development Tools
+Provides:       %{name} = %{epoch}:%{eclipse_version}-%{release}
 Requires:       %{name}-platform = %{epoch}:%{eclipse_version}-%{release}
 Requires:       %{?scl_prefix_java_common}junit >= 4.11-8.15
 Requires:       %{?scl_prefix_java_common}hamcrest >= 0:1.3-6.14
@@ -294,7 +325,6 @@ developing software written in the Java programming language.
 
 %package        pde
 Summary:        Eclipse Plugin Development Environment
-Provides:       %{name} = %{epoch}:%{eclipse_version}-%{release}
 Requires:       %{name}-platform = %{epoch}:%{eclipse_version}-%{release}
 Requires:       %{name}-jdt = %{epoch}:%{eclipse_version}-%{release}
 Requires:       %{?scl_prefix_java_common}objectweb-asm5 >= 5.0.3-1
@@ -310,6 +340,8 @@ developing Eclipse plugins.
 Summary:        Eclipse p2 Discovery
 BuildArch:      noarch
 Requires:       %{name}-platform = %{epoch}:%{eclipse_version}-%{release}
+# Obsoletes added in F22
+Obsoletes:      %{name}-p2-discovery < 1:4.5.0-0.10
 
 %description    p2-discovery
 The p2 Discovery mechanism provides a simplified and branded front-end for the
@@ -329,8 +361,7 @@ SWT tools, E4 tools, Rel-Eng tools and Eclipse Test frameworks.
 Summary:        Eclipse Tests
 Requires:       %{name}-pde = %{epoch}:%{eclipse_version}-%{release}
 Requires:       %{?scl_prefix_java_common}easymock2
-Requires:       %{?scl_prefix_java_common}cglib
-Requires:       %{?scl_prefix}mockito >= 1.10.19-3.5
+Requires:       %{?scl_prefix}mockito >= 1.10.19-3.7
 Requires:       %{?scl_prefix_java_common}atinject-tck >= 1-13.20100611svn86.10
 
 %description    tests
@@ -358,7 +389,6 @@ tar --strip-components=1 -xf %{SOURCE1}
 %patch12
 %patch13
 %patch14
-%patch15
 %patch16
 %patch17
 %patch18
@@ -366,15 +396,34 @@ tar --strip-components=1 -xf %{SOURCE1}
 %patch20
 %patch21
 %patch22 -p1
-
 pushd eclipse.platform.ui
 %patch23 -p1
 popd
 %patch24
 %patch25
-%patch26
+%patch26 -p1
+%patch27
+pushd eclipse.platform.swt
+%patch28 -p1
+%patch29 -p1
+%patch31 -p1
+%patch33 -p1
+%patch34 -p1
+popd
+%patch30 -p1
+%patch35 -p1
+%patch36 -p1
+pushd eclipse.platform.swt
+%patch37 -p1
+%patch38 -p1
+popd
+%patch39
+%patch40
 
-# Disable as many things as possible to make the build faster. We care only for Eclipse.
+# Resolving the target platform requires too many changes, so don't use it
+%pom_xpath_remove "pom:configuration/pom:target" eclipse-platform-parent
+
+# Disable as many products as possible to make the build faster, we care only for the IDE
 %pom_disable_module platform.sdk eclipse.platform.releng.tychoeclipsebuilder
 %pom_disable_module rcp eclipse.platform.releng.tychoeclipsebuilder
 %pom_disable_module rcp.sdk eclipse.platform.releng.tychoeclipsebuilder
@@ -383,6 +432,7 @@ popd
 %pom_disable_module equinox-sdk eclipse.platform.releng.tychoeclipsebuilder
 %pom_disable_module equinox.starterkit.product eclipse.platform.releng.tychoeclipsebuilder
 
+# Disable bundles that we don't ship as part of the remaining products
 %pom_disable_module bundles/org.eclipse.equinox.region.tests rt.equinox.bundles
 %pom_disable_module features/org.eclipse.equinox.weaving.sdk rt.equinox.bundles
 %pom_disable_module bundles/org.eclipse.equinox.cm.test rt.equinox.bundles
@@ -402,6 +452,11 @@ popd
 %pom_disable_module features/org.eclipse.equinox.server.p2 rt.equinox.bundles
 %pom_disable_module features/org.eclipse.equinox.serverside.sdk rt.equinox.bundles
 %pom_disable_module bundles/org.eclipse.equinox.p2.tests.reconciler.product rt.equinox.p2
+%pom_disable_module bundles/org.eclipse.equinox.p2.artifact.optimizers rt.equinox.p2
+%pom_disable_module bundles/org.eclipse.equinox.p2.artifact.processors rt.equinox.p2
+%pom_disable_module bundles/ie.wombat.jbdiff rt.equinox.p2
+%pom_disable_module bundles/ie.wombat.jbdiff.test rt.equinox.p2
+%pom_disable_module tests/com.google.code.atinject.tck eclipse.platform.runtime
 
 # We don't need support for Eclipse 2.x style plugins
 %pom_disable_module features/org.eclipse.osgi.compatibility.plugins.feature rt.equinox.framework
@@ -490,6 +545,10 @@ done
 sed -i -e '169i<feature id="org.eclipse.core.runtime.feature"/>' \
   eclipse.platform.releng.tychoeclipsebuilder/platform/platform.product
 
+# Ensure batch compiler gets installed correctly
+sed -i -e '/org.eclipse.ui.themes/i<plugin id="org.eclipse.jdt.core.compiler.batch" download-size="0" install-size="0" version="0.0.0" unpack="false"/>' \
+  eclipse.platform.releng/features/org.eclipse.platform-feature/feature.xml
+
 # Don't mirror stuff to the repo that we haven't built
 %pom_xpath_remove "pom:execution[pom:id[text()='mirror-build-emf']]" \
   eclipse.platform.releng.tychoeclipsebuilder/eclipse.platform.repository
@@ -542,7 +601,8 @@ for f in `find eclipse.platform.team/bundles/org.eclipse.core.net/fragments -nam
     echo -e "Eclipse-BundleShape: dir\n\n" >> $f; 
 done
 
-%if 0%{?rhel} < 7
+%if 0%{?rhel} == 6
+# No GTK3 on EL 6
 sed -i '/machine_gtk3/d' eclipse.platform.swt.binaries/bundles/org.eclipse.swt.gtk.linux.%{eclipse_arch}/pom.xml
 
 # Manually place rhino at correction location in reactor cache
@@ -554,7 +614,7 @@ popd
 %endif
 
 #fake dependencies that don't exist in fedora
-./dependencies/./fake_ant_dependency.sh .m2/p2/repo-sdk/plugins/org.apache.ant_* %{_javadir_java_common} %{_bindir_java_common} -makejar
+./dependencies/fake_ant_dependency.sh .m2/p2/repo-sdk/plugins/org.apache.ant_* -makejar
 
 # Allow usage of javax.servlet.jsp 2.3.
 sed -i '/javax\.servlet\.jsp/ s/2\.3/2\.4/' rt.equinox.bundles/bundles/org.eclipse.equinox.jsp.jasper/META-INF/MANIFEST.MF
@@ -568,12 +628,12 @@ sed -i -e '2iRequire-Bundle: javax.el-api' rt.equinox.bundles/bundles/org.eclips
 # Use javax.servlet-api (Glassfish) instead of javax.servlet (Tomcat)
 find -name feature.xml | xargs sed -i -e 's|"javax.servlet"|"javax.servlet-api"|'
 sed -i -e "s|<id>javax.servlet</id>|<id>javax.servlet-api</id>|g" eclipse.platform.common/bundles/org.eclipse.platform.doc.isv/pom.xml
-sed -i -e "2iRequire-Bundle: javax.servlet-api" rt.equinox.bundles/bundles/org.eclipse.equinox.http.jetty9/META-INF/MANIFEST.MF
-sed -i -e "2iRequire-Bundle: javax.servlet-api" rt.equinox.bundles/bundles/org.eclipse.equinox.http.servlet/META-INF/MANIFEST.MF
+sed -i -e "2iRequire-Bundle: javax.servlet-api" rt.equinox.bundles/bundles/org.eclipse.equinox.http.{jetty9,servlet}/META-INF/MANIFEST.MF
 
 %pom_remove_plugin  org.mortbay.jetty:jetty-jspc-maven-plugin  eclipse.platform.ua/org.eclipse.help.webapp
 
-sed -i -e 's@Dhelp.lucene.tokenizer=standard@XX:MaxPermSize=384M@g' eclipse.platform.common/bundles/org.eclipse.platform.doc.isv/pom.xml
+# Fix tycho failures caused by mis-named Java 1.9 profile
+sed -i -e 's/JavaSE-1\.9/JavaSE-9\.0/' ./rt.equinox.framework/bundles/org.eclipse.osgi/profile.list
 
 # Remove generated files not present during bootstrap build
 # org.eclipse.platform.doc.isv, org.eclipse.jdt.doc.isv, org.eclipse.pde.doc.user
@@ -588,6 +648,7 @@ ln -s %{_javadir}/osgi-annotation/osgi.annotation.jar rt.equinox.bundles/bundles
 ln -s %{_javadir}/osgi-annotation/osgi.annotation.jar rt.equinox.bundles/bundles/org.eclipse.equinox.coordinator/lib/
 
 # It would be nice if upstream were refactored to make selecting features by maven groupId easier...
+%mvn_package "::pom::" __noinstall
 %mvn_package ":org.eclipse.equinox.p2.discovery.{feature,compatibility}" p2-discovery
 %mvn_package ":org.eclipse.equinox.p2{,.ui}.discovery" p2-discovery
 %mvn_package ":org.eclipse.e4{,.core}.tools*" contributor-tools
@@ -606,7 +667,7 @@ set -e -x
 export MAVEN_OPTS="-Xmx1000m -XX:CompileCommand=exclude,org/eclipse/tycho/core/osgitools/EquinoxResolver,newState ${MAVEN_OPTS}"
 export JAVA_HOME=/usr/lib/jvm/java-1.8.0
 
-%mvn_build -j -f -- -DforceContextQualifier=$(date +v%Y%m%d-%H00) \
+%mvn_build -j -f -- -DforceContextQualifier=$(date -u +v%Y%m%d-%H00) \
 %if %{bootstrap}
    -P !api-generation,!build-docs \
 %endif
@@ -616,8 +677,7 @@ export JAVA_HOME=/usr/lib/jvm/java-1.8.0
 
 #ant again
 dependencies/fake_ant_dependency.sh \
-  eclipse.platform.releng.tychoeclipsebuilder/platform/target/products/org.eclipse.platform.ide/linux/gtk/%{eclipse_arch}/eclipse/plugins/org.apache.ant_* \
-  %{_javadir_java_common} %{_bindir_java_common}
+  eclipse.platform.releng.tychoeclipsebuilder/platform/target/products/org.eclipse.platform.ide/linux/gtk/%{eclipse_arch}/eclipse/plugins/org.apache.ant_*
 
 # JDT and PDE are built as update sites.
 # Initialize them and move into dropins.
@@ -627,16 +687,14 @@ utils/move_JDT_PDE_to_dropins.sh \
   "jdt cvs sdk"
 
 # Symlink necessary plugins that are provided by other packages
-sed -i -e 's/glassfish-el.jar/glassfish-el-3.0.0.jar/' -e 's/analyzers-common_/analysis_/' \
-       -e 's/glassfish-jsp-api\/javax\.servlet\.jsp-api\.jar/glassfish-jsp-api.jar/' -e '/jcraft/a _symlink javax.el-api_ glassfish-el-api.jar' \
-       -e '/org\.apache\.x/d' -e '/lucene\.sandbox/d' -e '/lucene\.queries/d' -e '/lucene\.analyzers/d' -e '/lucene\.queryparser/d' \
-       -e 's/asm\/asm\.jar/asm5\/asm-5.jar/' -e 's/asm\/asm-tree\.jar/asm5\/asm-tree-5.jar/' \
+sed -i -e 's/glassfish-el.jar/glassfish-el-3.0.0.jar/' \
+       -e 's/glassfish-jsp-api\/javax\.servlet\.jsp-api\.jar/glassfish-jsp-api.jar/' \
+       -e '/jcraft/a _symlink javax.el-api_ glassfish-el-api.jar' \
+       -e '/\(asm\|lucene\)/ s/\(asm\|lucene\)\/\(.\+\).jar/\15\/\2-5.jar/' \
        dependencies/replace_platform_plugins_with_symlinks.sh
 dependencies/replace_platform_plugins_with_symlinks.sh \
   eclipse.platform.releng.tychoeclipsebuilder/platform/target/products/org.eclipse.platform.ide/linux/gtk/%{eclipse_arch}/eclipse \
-%{_javadir} \
-%{_javadir_java_common} \
-%{_root_datadir}/java
+  %{_javadir} %{_javadir_java_common}
 
 pushd eclipse.platform.releng.tychoeclipsebuilder/platform/target/products/org.eclipse.platform.ide/linux/gtk/%{eclipse_arch}/eclipse
 
@@ -664,15 +722,17 @@ sed -i "s|-Xms40m|-Xms128m|g" eclipse.ini
 sed -i "s|-Xmx512m|-Xmx1024m|g" eclipse.ini
 sed -i '1i-protect\nmaster' eclipse.ini
 
-# Use GTK3 by default on F22 or newer
-%if 0%{?rhel} >= 7
-sed -i '5i--launcher.GTK_version\n3' eclipse.ini
-%else
+# Use GTK3 by default on Fedora or RHEL 7 and newer
+%if 0%{?rhel} == 6
 sed -i '5i--launcher.GTK_version\n2' eclipse.ini
+%else
+sed -i '5i--launcher.GTK_version\n3' eclipse.ini
 %endif
 
+%if 0%{?rhel}
 # Explicitly use java 1.8
 sed -i '15i-vm\n/usr/lib/jvm/jre-1.8.0/bin/java' eclipse.ini
+%endif
 
 # Temporary fix until https://bugs.eclipse.org/294877 is resolved
 cat >> eclipse.ini <<EOFINI
@@ -685,6 +745,7 @@ cat >> eclipse.ini <<EOFINI
 -XX:CompileCommand=exclude,org/python/pydev/editor/codecompletion/revisited/PythonPathHelper,isValidSourceFile
 -XX:CompileCommand=exclude,org/eclipse/tycho/core/osgitools/EquinoxResolver,newState
 -Dorg.eclipse.equinox.p2.reconciler.dropins.directory=%{_datadir}/eclipse/dropins
+-Dp2.fragments=%{_datadir}/eclipse/droplets,%{_libdir}/eclipse/droplets
 -Declipse.p2.skipMovedInstallDetection=true
 EOFINI
 
@@ -700,8 +761,8 @@ set -e -x
 # Some directories we need
 install -d -m 755 $RPM_BUILD_ROOT%{_sysconfdir}
 install -d -m 755 $RPM_BUILD_ROOT%{_jnidir}
-install -d -m 755 $RPM_BUILD_ROOT%{_javadir}/%{pkg_name}
-install -d -m 755 $RPM_BUILD_ROOT%{_libdir}/%{pkg_name}/buildscripts
+install -d -m 755 $RPM_BUILD_ROOT%{_javadir}/eclipse
+install -d -m 755 $RPM_BUILD_ROOT%{_libdir}/eclipse/buildscripts
 install -d -m 755 $RPM_BUILD_ROOT%{_mavenpomdir}
 install -d -m 755 $RPM_BUILD_ROOT%{_bindir}
 
@@ -746,28 +807,28 @@ rsync -vrpl eclipse.platform.releng.tychoeclipsebuilder/platform/target/products
 
 #eclipse compiler
 install -m 755 jdtcompilatorscript/efj.sh $RPM_BUILD_ROOT%{_bindir}/efj
-TARGET_LAUNCHER=%{_libdir}/%{pkg_name}/plugins/`ls eclipse.platform.releng.tychoeclipsebuilder/platform/target/products/org.eclipse.platform.ide/linux/gtk/%{eclipse_arch}/eclipse/plugins | grep launcher_[0-9]*`
+TARGET_LAUNCHER=%{_libdir}/eclipse/plugins/`ls eclipse.platform.releng.tychoeclipsebuilder/platform/target/products/org.eclipse.platform.ide/linux/gtk/%{eclipse_arch}/eclipse/plugins | grep launcher_[0-9]*`
 sed -i -e "s,@LAUNCHER@,${TARGET_LAUNCHER}," $RPM_BUILD_ROOT%{_bindir}/efj
 
 # Symlink eclipse binary
 pushd $RPM_BUILD_ROOT%{_bindir}
-    ln -s %{_libdir}/%{pkg_name}/eclipse
+    ln -s %{_libdir}/eclipse/eclipse
 popd 
 
 # SWT is a directory, but we need to provide jars for others that depend on it
-pushd $RPM_BUILD_ROOT/%{_libdir}/%{pkg_name}/plugins
+pushd $RPM_BUILD_ROOT/%{_libdir}/eclipse/plugins
 SWT_JAR=$(ls | grep swt.gtk.linux)
 (cd ${SWT_JAR} && zip -r "../../swt.jar" * )
 popd
 
 # Symlink SWT jar
 pushd $RPM_BUILD_ROOT/%{_jnidir}/
-    ln -s $(abs2rel %{_libdir}/%{pkg_name}/swt.jar %{_jnidir})
+    ln -s $(abs2rel %{_libdir}/eclipse/swt.jar %{_jnidir})
 popd
 
 # Symlink eclipse ini
 pushd $RPM_BUILD_ROOT/%{_sysconfdir}/
-    ln -s %{_libdir}/%{pkg_name}/eclipse.ini
+    ln -s %{_libdir}/eclipse/eclipse.ini
 popd
 
 # List jars to be symlinked into javadir
@@ -813,9 +874,9 @@ sed -i "s|@LIBDIR@|%{_libdir}|g" \
   $RPM_BUILD_ROOT%{_bindir}/eclipse-pdebuild
 
 #fix pde permissions
-chmod a+x  $RPM_BUILD_ROOT%{_libdir}/%{pkg_name}/dropins/sdk/plugins/org.eclipse.pde.build_*/templates/package-build/*.sh
+chmod a+x  $RPM_BUILD_ROOT%{_libdir}/eclipse/dropins/sdk/plugins/org.eclipse.pde.build_*/templates/package-build/*.sh
 #replace pde reference
-sed -i "s@/usr/share/eclipse@%{libdir}/%{pkg_name}@" $RPM_BUILD_ROOT%{_libdir}/%{pkg_name}/dropins/sdk/plugins/org.eclipse.pde.build_*/templates/package-build/build.properties
+sed -i "s@/usr/share/eclipse@%{libdir}/eclipse@" $RPM_BUILD_ROOT%{_libdir}/eclipse/dropins/sdk/plugins/org.eclipse.pde.build_*/templates/package-build/build.properties
 
 ##############
 # Tests
@@ -848,7 +909,7 @@ pushd $RPM_BUILD_ROOT/%{_javadir}/eclipse-testing/plugins
  ln -s %{_javadir}/mockito/mockito-core.jar ${f%.jar}.jar
  f=`ls | grep -e "^net.sf.cglib.core_"`
  rm -rf $f
- ln -s %{_javadir_java_common}/cglib.jar ${f%.jar}.jar
+ ln -s %{_javadir}/cglib-3.jar ${f%.jar}.jar
  f=`ls | grep -e "^org.objenesis_"`
  rm -rf $f
  ln -s %{_javadir_java_common}/objenesis/objenesis.jar ${f%.jar}.jar
@@ -863,12 +924,12 @@ popd
 
 sed -i -e "s#@libdir@#%{_libdir}#" $RPM_BUILD_ROOT/%{_javadir}/eclipse-testing/runtests.sh
 sed -i -e "s#@USR@#%{?_scl_root}%{_usr}#" $RPM_BUILD_ROOT/%{_javadir}/eclipse-testing/runtests.sh
-touch $RPM_BUILD_ROOT%{_bindir}/%{pkg_name}-runEclipsePackageTests
-chmod a+x  $RPM_BUILD_ROOT/%{_bindir}/%{pkg_name}-runEclipsePackageTests
-echo '#!/bin/sh' >>  $RPM_BUILD_ROOT/%{_bindir}/%{pkg_name}-runEclipsePackageTests
-echo 'echo "results in /tmp/eclipse-tests-directory/results/"' >>  $RPM_BUILD_ROOT/%{_bindir}/%{pkg_name}-runEclipsePackageTests
-echo 'export testslocation="%{_javadir}/eclipse-testing/"' >> $RPM_BUILD_ROOT/%{_bindir}/%{pkg_name}-runEclipsePackageTests
-echo "pushd %{_javadir}/eclipse-testing;./runtests.sh -os linux -ws gtk -arch %{eclipse_arch} ; popd;" >>  $RPM_BUILD_ROOT/%{_bindir}/%{pkg_name}-runEclipsePackageTests
+touch $RPM_BUILD_ROOT%{_bindir}/eclipse-runEclipsePackageTests
+chmod a+x  $RPM_BUILD_ROOT/%{_bindir}/eclipse-runEclipsePackageTests
+echo '#!/bin/sh' >>  $RPM_BUILD_ROOT/%{_bindir}/eclipse-runEclipsePackageTests
+echo 'echo "results in /tmp/eclipse-tests-directory/results/"' >>  $RPM_BUILD_ROOT/%{_bindir}/eclipse-runEclipsePackageTests
+echo 'export testslocation="%{_javadir}/eclipse-testing/"' >> $RPM_BUILD_ROOT/%{_bindir}/eclipse-runEclipsePackageTests
+echo "pushd %{_javadir}/eclipse-testing;./runtests.sh -os linux -ws gtk -arch %{eclipse_arch} ; popd;" >>  $RPM_BUILD_ROOT/%{_bindir}/eclipse-runEclipsePackageTests
 
 # These properties are not correct and nested properties won't get resolved
 sed -i '/org.eclipse.equinox.p2.reconciler.test/ d' $RPM_BUILD_ROOT/%{_javadir}/eclipse-testing/equinoxp2tests.properties
@@ -882,18 +943,17 @@ pushd $RPM_BUILD_ROOT/%{_javadir}/eclipse-testing/testbundle
 sed -i 's|%{_datadir}/ant|%{_datadir_java_common}/ant|' $RPM_BUILD_ROOT/%{_javadir}/eclipse-testing/runtests.sh
 sed -i 's|%{_bindir}/\./ant|%{_bindir_java_common}/\./ant|' $RPM_BUILD_ROOT/%{_javadir}/eclipse-testing/runtests.sh
 sed -i 's|/usr/share/java|%{_javadir}|' prepRuntimeLocation.sh
-
 sed -i 's|\.\+/\(gatherBundles\.sh\)|%{_javadir}/eclipse-testing/testbundle/\1|' prepRuntimeLocation.sh
 sed -i 's|\.\+/\(genRepo\.sh\)|%{_javadir}/eclipse-testing/testbundle/\1|' prepAllTestBundles.sh
-sed -i 's|\.\+/\(prepRuntimeLocation\.sh\)|%{_javadir}/eclipse-testing/testbundle/\1|' %{pkg_name}-runTestBundles
-sed -i 's|\.\+/\(prepAllTestBundles\.sh\)|%{_javadir}/eclipse-testing/testbundle/\1|' %{pkg_name}-runTestBundles
+sed -i 's|\.\+/\(prepRuntimeLocation\.sh\)|%{_javadir}/eclipse-testing/testbundle/\1|' eclipse-runTestBundles
+sed -i 's|\.\+/\(prepAllTestBundles\.sh\)|%{_javadir}/eclipse-testing/testbundle/\1|' eclipse-runTestBundles
 sed -i 's|cp swtbot-library.xml alltest.xml updateTestBundleXML.sh target/|cp %{_javadir}/eclipse-testing/testbundle/{swtbot-library.xml,alltest.xml,updateTestBundleXML.sh} target/|' prepRuntimeLocation.sh
 
 for file in genRepo.sh gatherBundles.sh ;do
   sed -i 's|scl_root=|scl_root=%{?_scl_root}|' ${file}
 done
 
-mv $RPM_BUILD_ROOT/%{_javadir}/eclipse-testing/testbundle/%{pkg_name}-runTestBundles $RPM_BUILD_ROOT/%{_bindir}/%{pkg_name}-runTestBundles
+mv $RPM_BUILD_ROOT/%{_javadir}/eclipse-testing/testbundle/eclipse-runTestBundles $RPM_BUILD_ROOT/%{_bindir}/eclipse-runTestBundles
 popd
 
 #fix so permissions
@@ -940,6 +1000,9 @@ fi
 %{_libdir}/%{pkg_name}/features/org.eclipse.platform_*
 %{_libdir}/%{pkg_name}/features/org.eclipse.rcp_*
 %{_libdir}/%{pkg_name}/plugins/com.ibm.icu_*
+%if 0%{?fedora} >= 24
+%{_libdir}/%{pkg_name}/plugins/com.spatial4j_*
+%endif
 %{_libdir}/%{pkg_name}/plugins/com.jcraft.jsch_*
 %{_libdir}/%{pkg_name}/plugins/javax.servlet-api_*
 %{_libdir}/%{pkg_name}/plugins/javax.servlet.jsp_*
@@ -947,21 +1010,9 @@ fi
 %{_libdir}/%{pkg_name}/plugins/com.sun.el.javax.el_*
 %{_libdir}/%{pkg_name}/plugins/javax.el-api_*
 %{_libdir}/%{pkg_name}/plugins/javax.inject_*.jar
-%{_libdir}/%{pkg_name}/plugins/org.apache.ant_*
-%{_libdir}/%{pkg_name}/plugins/org.apache.batik.css_*
-%{_libdir}/%{pkg_name}/plugins/org.apache.batik.util.gui_*
-%{_libdir}/%{pkg_name}/plugins/org.apache.batik.util_*
-%{_libdir}/%{pkg_name}/plugins/org.apache.httpcomponents.httpclient_*
-%{_libdir}/%{pkg_name}/plugins/org.apache.httpcomponents.httpcore_*
-%{_libdir}/%{pkg_name}/plugins/org.apache.commons.codec_*
-%{_libdir}/%{pkg_name}/plugins/org.apache.commons.jxpath_*
-%{_libdir}/%{pkg_name}/plugins/org.apache.commons.logging_*
-%{_libdir}/%{pkg_name}/plugins/org.apache.felix.gogo.command_*
-%{_libdir}/%{pkg_name}/plugins/org.apache.felix.gogo.runtime_*
-%{_libdir}/%{pkg_name}/plugins/org.apache.felix.gogo.shell_*
+%{_libdir}/%{pkg_name}/plugins/org.apache.*
 %{_libdir}/%{pkg_name}/plugins/javax.annotation-api_*
 %{_libdir}/%{pkg_name}/plugins/org.glassfish.web.javax.servlet.jsp_*
-%{_libdir}/%{pkg_name}/plugins/org.apache.lucene.*
 %{_libdir}/%{pkg_name}/plugins/org.eclipse.ant.core_*
 %{_libdir}/%{pkg_name}/plugins/org.eclipse.compare_*
 %{_libdir}/%{pkg_name}/plugins/org.eclipse.compare.core_*
@@ -1147,40 +1198,153 @@ fi
 %{_libdir}/%{pkg_name}/plugins/org.eclipse.osgi.compatibility.state_*
 
 %changelog
-* Thu Oct 01 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-10.6
-- Fix JDT javafx and annotation processor tests, rhbz#1230139
+* Wed Apr 06 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.2-5.4
+- Update eclipse-build snapshot for test-support enhancements,
+  fixes rhbz#1315730 and rhbz#1263101
 
-* Wed Sep 02 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-10.5
-- Tighten requirement on mockito
-- Resolves: rhbz#1249667
+* Fri Mar 25 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.2-5.3
+- Eliminate more test failures due to missing resources, rhbz#1230139
 
-* Fri Aug 21 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-10.4
-- Force usage of glassfish instead of tomcat for el api
-- Resolves: rhbz#1249293
+* Thu Mar 24 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.2-5.2
+- Fix failure to run tests and backport patch for ebz#489953 in order to fix
+  some unit tests, fixes rhbz#1316061 and rhbz#1262804
 
-* Thu Aug 20 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-10.3
-- Add dep on openjdk-devel so tools.jar is available for use
-
-* Tue Aug 18 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-10.2
-- Fix ant diagnostic test, rhbz#1245946
-
-* Thu Jul 30 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-10.1
+* Sun Mar 20 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.2-5.1
 - Import latest from Fedora
+
+* Wed Mar 16 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.2-5
+- Rebuild for ECF and disable the build of some bundles that are not shipped
+
+* Fri Mar 04 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.2-4
+- Backport patch for ebz#488226 for incorrect content assist colors,
+  fixes rhbz#1253651 and rhbz#1196736
+- Fix broken link to mockito in tests
+
+* Wed Mar 02 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.2-3
+- Fix mis-named Java 1.9 profile
+
+* Mon Feb 29 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.2-2
+- Fix Lucene patch on F22
+
+* Mon Feb 29 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.2-1
+- Update to Mars.2 release
+- Update eclipse-build snapshot
+
+* Mon Feb 29 2016 Michael Simacek <msimacek@redhat.com> - 1:4.5.1-17
+- Rebuild for lucene-5.5.0
+
+* Mon Feb 29 2016 Mikolaj Izdebski <mizdebsk@redhat.com> - 1:4.5.1-16
+- Rebuild for httpcomponents-client 4.5.2
+
+* Mon Feb 29 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.1-12.3
+- Rebuild 2016-02-29
+
+* Thu Feb 25 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.1-15
+- Make BRs portable (thanks to Nicolas Lécureuil)
+
+* Wed Feb 24 2016 Roland Grunberg <rgrunber@redhat.com> - 1:4.5.1-14
+- Gracefully handle broken symbolic links on initialization.
+
+* Wed Feb 17 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.1-13
+- Preserve more test data that we cannot generate from source
+- Eliminate unnecessary manual requires from swt package
+
+* Wed Feb 17 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.1-12.2
+- Preserve more test data, rhbz#1249684
+
+* Wed Feb 17 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.1-12.1
+- Import latest from Fedora
+
+* Wed Feb 17 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.1-12
+- Make test framework correctly delete symlinks so that test suites may complete
+  when e.g. pydev is installed rhbz#1290685
+- Backport patch to fix a webkit crash ebz#487712
+
+* Tue Feb 16 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.1-11.2
+- Rebuild to regenerate mockito/cglib symlinks
+- rhbz#1262814
+
+* Tue Feb 09 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.1-11.1
+- Import latest from Fedora
+
+* Mon Feb 08 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.1-11
+- Fix java declaration view rhbz#1305107
+
+* Wed Feb 03 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.1-10
+- Fix symlinks for new lucene
+- Use %%global instead of %%define and other macro improvements
+
+* Wed Feb 03 2016 Fedora Release Engineering <releng@fedoraproject.org> - 1:4.5.1-9
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
+
+* Thu Jan 21 2016 Alexander Kurtakov <akurtako@redhat.com> 1:4.5.1-8
+- Rebuild for Lucene 5.4.0.
+
+* Mon Jan 18 2016 Mat Booth <mat.booth@redhat.com> - 1:4.5.1-7.1
+- Import latest from Fedora
+
+* Mon Jan 04 2016 Roland Grunberg <rgrunber@redhat.com> - 1:4.5.1-7
+- [GTK3.16+] gtk_widget_override_background_color is deprecated.
+- [GTK3] Eclipse IDE consumes CPU when idle
+- [GTK] Empty repositories view links have white backgrounds
+- Resolves: rhbz#1294697, rhbz#1269892
+- ebz#483096, ebz#484696, ebz#484729
+
+* Sat Dec 05 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.1-6
+- Fix issues with background colour in some dialogs
+- ebz#478962, ebz#479998
+- Rebuild for new eclipse-ecf
+- Preserve jars containing runtime stubs used in tests
+
+* Fri Nov 27 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.1-5
+- Fix some visual glitches when on recent versions of GTK
+- ebz#466314, ebz#481122, ebz#466500
+
+* Tue Nov 03 2015 Roland Grunberg <rgrunber@redhat.com> - 1:4.5.1-4
+- Fix "Workspace chooser won't launch" on Wayland.
+- Resolves: rhbz#1277594
+
+* Mon Nov  2 2015 Mikolaj Izdebski <mizdebsk@redhat.com> - 1:4.5.1-3
+- Rebuild for new eclipse-ecf
+
+* Tue Oct 13 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.1-2
+- Add patch for editor scrolling problem, rhbz#1198217
+
+* Wed Sep 30 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.1-1
+- Update to Mars.1
+- Fix JDT javafx and annotation processor tests
+
+* Wed Sep 16 2015 Mikolaj Izdebski <mizdebsk@redhat.com> - 1:4.5.0-19
+- Rebuild for new eclipse-ecf
+
+* Wed Sep  9 2015 Mikolaj Izdebski <mizdebsk@redhat.com> - 1:4.5.0-18
+- Rebuild for new eclipse-ecf
+
+* Mon Sep 07 2015 Michael Simacek <msimacek@redhat.com> - 1:4.5.0-17
+- Rebuild for httpcomponents-core-4.4.2
+
+* Tue Sep 01 2015 Roland Grunberg <rgrunber@redhat.com> - 1:4.5.0-16
+- Modify copy-platform script to support p2 Droplets.
+
+* Thu Aug 27 2015 Roland Grunberg <rgrunber@redhat.com> - 1:4.5.0-15
+- Add support for p2 Droplets.
+
+* Wed Aug 26 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-14
+- Rebuild for new ECF
+
+* Thu Aug 20 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-13
+- Add patch for rhbz#1255150
+- Always use UTC timestamps to prevent rpmdiff failures
+- Move eclipse provides away from PDE rhbz#1253898
+
+* Tue Aug 11 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-12
+- Rebuild for new ECF
+
+* Thu Aug 6 2015 Alexander Kurtakov <akurtako@redhat.com> 1:4.5.0-11
+- Update to newer e-b snapshot fixing appdata validation.
 
 * Thu Jul 30 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-10
 - Preserve JDT core test data
-
-* Wed Jul 29 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-3.11
-- Rebuild for new ECF/EMF
-
-* Tue Jul 28 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-3.10
-- Require java 8 explicitly at runtime
-- rhbz#1245428
-
-* Tue Jul 28 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-3.9
-- Fix further ant version tests rhbz#1243711
-- Tighten up deps on junit/hamcrest
-- Build javadocs with java 8
 
 * Wed Jul 22 2015 Roland Grunberg <rgrunber@redhat.com> - 1:4.5.0-9
 - Fix JDT Feature path for TargetDefinitionPersistenceTests (PDE)
@@ -1190,48 +1354,17 @@ fi
 * Mon Jul 20 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-8
 - Disable tests for Eclipse 2.x style plug-in support that we don't ship
 
-* Mon Jul 20 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-3.8
-- Disable tests for Eclipse 2.x era plugin compatibility, we do not ship support
-  for that
-- rhbz#1234828
-
 * Fri Jul 17 2015 Alexander Kurtakov <akurtako@redhat.com> 1:4.5.0-7
 - Less PermSize settings - simply ignored in Java 8.
-
-* Fri Jul 17 2015 Jeff Johnston <jjohnstn@redhat.com> - 1:4.5.0-3.7
-- Fix ant version test to match version currently being used
-- rhbz #1243702
 
 * Thu Jul 16 2015 Alexander Kurtakov <akurtako@redhat.com> 1:4.5.0-6
 - Eclipse.ini has no place in swt subpackage.
 
-* Thu Jul 16 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-3.6
-- Fix asm symlinks for PDE and add cglib to the test framework
-- rhbz#1243395 and rhbz#1243762
-
 * Wed Jul  15 2015 Sopot Cela <scela@redhat.com> 1:4.5.0-5
 - Replaced javax.annotation provider from geronimo to glassfish
 
-* Thu Jul 09 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-3.5
-- Fix symlinks in test package
-
 * Tue Jul  7 2015 Mikolaj Izdebski <mizdebsk@redhat.com> - 1:4.5.0-4
 - Add Maven metadata for SWT
-
-* Tue Jul 07 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-3.4
-- Non-bootstrap build
-- Remove ecj workaround
-
-* Mon Jul 06 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-3.3
-- Re-add rhino workaround for el6
-
-* Mon Jul 06 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-3.2
-- Add ecj to local maven repository
-
-* Thu Jul 02 2015 Mat Booth <mat.booth@redhat.com> - 1:4.5.0-3.1
-- Import latest from Fedora
-- Enable bootstrap mode
-- Port back to lucene 4
 
 * Thu Jul 02 2015 Sopot Cela <scela@redhat.com> 1:4.5.0-3
 - Patch dark theme patch to work on rawhide
