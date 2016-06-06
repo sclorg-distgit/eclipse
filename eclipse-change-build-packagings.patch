@@ -1,23 +1,23 @@
 --- eclipse.platform.releng/features/org.eclipse.sdk/feature.xml.orig	2014-04-08 15:47:19.927087084 +0100
 +++ eclipse.platform.releng/features/org.eclipse.sdk/feature.xml	2014-04-08 15:48:00.045367311 +0100
-@@ -19,7 +19,7 @@
-       %license
-    </license>
+@@ -59,7 +59,7 @@
+          id="org.eclipse.help.source"
+          version="0.0.0"/>
  
 -   <requires>
 +   <!--requires>
        <import feature="org.eclipse.emf.common.source" version="2.7.0" match="compatible"/>
        <import feature="org.eclipse.emf.ecore.source" version="2.7.0" match="compatible"/>
-    
-@@ -29,7 +29,7 @@
+       <import feature="org.eclipse.ecf.core.source.feature" version="1.1.0" match="compatible"/>
+@@ -68,7 +68,7 @@
        <import feature="org.eclipse.ecf.filetransfer.httpclient4.source.feature" version="3.8.0" match="compatible"/>
        <import feature="org.eclipse.ecf.filetransfer.httpclient4.ssl.source.feature" version="1.0.0" match="compatible"/>
        <import feature="org.eclipse.ecf.filetransfer.ssl.source.feature" version="1.0.0" match="compatible"/>
 -   </requires>
 +   </requires-->
  
- 
- 
+    <plugin
+          id="org.eclipse.sdk"
 --- eclipse.platform.releng.tychoeclipsebuilder/eclipse.platform.repository/category.xml.orig	2015-03-31 10:28:54.530277349 +0100
 +++ eclipse.platform.releng.tychoeclipsebuilder/eclipse.platform.repository/category.xml	2015-03-31 10:29:46.232519773 +0100
 @@ -4,18 +4,12 @@

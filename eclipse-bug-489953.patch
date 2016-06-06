@@ -1,0 +1,63 @@
+From bd2e4b64ecd5e5b0d476810cc1d365ce8f3065c5 Mon Sep 17 00:00:00 2001
+From: Eric Williams
+Date: Fri, 18 Mar 2016 11:45:13 -0400
+Subject: Bug 489953: [GTK3.14-] Button background tests fail
+
+GTK3.14 and below does not have access to CSS parsing methods. There are
+however a handful of widgets that use CSS background colors on GTK3.14.
+Button is one of these, as CSS theming was introduced to Button to fix
+some bugs.
+
+This means that on GTK3.14 there is a test failure for
+Button.getBackground() since SWT cannot parse GTK CSS on GTK3.14. The
+solution to keep track of the background color and override
+getContextBackground() in Button. This eliminates the last failing color
+test case on GTK3.14
+
+This modifies behavior for GTK3.14 and below. GTK3.16 behavior is
+unaffected as CSS parsing machinery exists for 3.16 and up.
+
+Tested on GTK3.18, 3.16, 3.14, and 2.24. AllNonBrowserTests pass on GTK3
+and GTK2.---
+ .../Eclipse SWT/gtk/org/eclipse/swt/widgets/Button.java        | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Button.java b/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Button.java
+index 967550c..9aab8be 100644
+--- a/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Button.java	
++++ b/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Button.java	
+@@ -50,6 +50,7 @@ public class Button extends Control {
+ 	ImageList imageList;
+ 	Image image;
+ 	String text;
++	GdkRGBA background;
+ 
+ 	static final int INNER_BORDER = 1;
+ 	static final int DEFAULT_BORDER = 1;
+@@ -127,6 +128,14 @@ static GtkBorder getBorder (byte[] border, long /*int*/ handle, int defaultBorde
+     return gtkBorder;
+ }
+ 
++@Override
++GdkColor getContextBackground () {
++	if (background != null) {
++		return display.toGdkColor (background);
++	}
++	return display.COLOR_WIDGET_BACKGROUND;
++}
++
+ /**
+  * Adds the listener to the collection of listeners who will
+  * be notified when the control is selected by the user, by sending
+@@ -799,6 +808,7 @@ void _setAlignment (int alignment) {
+ void setBackgroundColor (long /*int*/ context, long /*int*/ handle, GdkRGBA rgba) {
+ 	/* Note: this function is called on Gtk3 only */
+ 
++	background = rgba;
+ 	//Pre Gtk 3.10 doesn't handle CSS background color very well for Gtk Check/Radio button.
+ 	// 3.10.3 as it was the latest to affect themeing in button.
+ 	if (OS.GTK_VERSION < OS.VERSION(3, 10, 3) && (style & (SWT.CHECK | SWT.RADIO)) != 0) {
+-- 
+cgit v0.11.2-4-g4a35
+
+

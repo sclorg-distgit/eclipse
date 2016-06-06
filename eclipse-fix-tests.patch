@@ -113,3 +113,130 @@ index bc8963d..fbe4da3 100644
 +jars.compile.order = lib/apttestprocessors.jar,\
 +                     lib/apttestprocessors8.jar,\
 +                     .
+--- eclipse.platform/ant/org.eclipse.ant.tests.ui/build.properties.orig	2016-03-24 14:25:47.076289150 +0000
++++ eclipse.platform/ant/org.eclipse.ant.tests.ui/build.properties	2016-03-24 14:26:39.528660802 +0000
+@@ -25,6 +25,8 @@
+                         Ant Tests/
+ 						
+ source.lib/antUITestsSupport.jar = test support/
+-jars.compile.order=anttestsui.jar,lib/antUITestsSupport.jar
++source.testbuildfiles/antUITestsSupport.jar = test support/
++jars.compile.order=anttestsui.jar,lib/antUITestsSupport.jar,testbuildfiles/antUITestsSupport.jar
+ output.lib/antUITestsSupport.jar = test_support_bin/
++output.testbuildfiles/antUITestsSupport.jar = test_support_bin/
+ output.anttestsui.jar = bin/
+--- eclipse.jdt.ui/org.eclipse.jdt.ui.tests/build.properties.orig	2016-03-25 15:09:40.557786910 +0000
++++ eclipse.jdt.ui/org.eclipse.jdt.ui.tests/build.properties	2016-03-25 15:12:08.476059326 +0000
+@@ -22,3 +22,5 @@
+             leaks/,\
+             performance/
+ javacWarnings..=-raw,-unchecked
++source.testresources/nls.jar = nls/
++jars.compile.order = .,testresources/nls.jar
+--- /dev/null	1970-01-01 01:00:00.000000000 +0100
++++ eclipse.jdt.ui/org.eclipse.jdt.ui.tests/nls/pkg/Client.java	2004-11-12 14:37:36.000000000 +0000
+@@ -0,0 +1,25 @@
++/*******************************************************************************
++ * Copyright (c) 2000, 2004 IBM Corporation and others.
++ * All rights reserved. This program and the accompanying materials 
++ * are made available under the terms of the Common Public License v1.0
++ * which accompanies this distribution, and is available at
++ * http://www.eclipse.org/legal/cpl-v10.html
++ * 
++ * Contributors:
++ *     IBM Corporation - initial API and implementation
++ *******************************************************************************/
++package pkg;
++
++public class Client {
++	
++    public String s;
++	
++	{
++		s= Messages.getString("test");
++		s= Messages.getString("test_undefined");
++		s= Messages.getString("duplicate");
++		s= Messages.getString("test.long.key");
++		s= Messages.getString("SearchResultView.removed_resource");
++	}
++
++}
+--- /dev/null	1970-01-01 01:00:00.000000000 +0100
++++ eclipse.jdt.ui/org.eclipse.jdt.ui.tests/nls/pkg/Messages.java	2004-11-12 14:37:28.000000000 +0000
+@@ -0,0 +1,58 @@
++/*******************************************************************************
++ * Copyright (c) 2000, 2004 IBM Corporation and others.
++ * All rights reserved. This program and the accompanying materials 
++ * are made available under the terms of the Common Public License v1.0
++ * which accompanies this distribution, and is available at
++ * http://www.eclipse.org/legal/cpl-v10.html
++ * 
++ * Contributors:
++ *     IBM Corporation - initial API and implementation
++ *******************************************************************************/
++package pkg;
++
++import java.text.MessageFormat;
++import java.util.MissingResourceException;
++import java.util.ResourceBundle;
++
++public class Messages extends Object {
++    private static final String RESOURCE_BUNDLE = Messages.class.getName();
++    private static ResourceBundle fgResourceBundle = ResourceBundle.getBundle(RESOURCE_BUNDLE);
++
++    private Messages() {}
++
++    /**
++     * Gets a string from the resource bundle and formats it with the argument
++     *
++     * @param key   the string used to get the bundle value, must not be null
++     */
++    public static String getFormattedString(String key, Object arg) {
++        String format = null;
++
++        try {
++            format = fgResourceBundle.getString(key);
++        } catch (MissingResourceException e) {
++            return "!" + key + "!"; //$NON-NLS-2$ //$NON-NLS-1$
++        }
++
++        if (arg == null) {
++            arg = ""; //$NON-NLS-1$
++        }
++
++        return MessageFormat.format(format, new Object[] { arg });
++    }
++
++    /**
++     * Gets a string from the resource bundle and formats it with arguments
++     */
++    public static String getFormattedString(String key, String[] args) {
++        return MessageFormat.format(fgResourceBundle.getString(key), args);
++    }
++
++    public static String getString(String key) {
++        try {
++            return fgResourceBundle.getString(key);
++        } catch (MissingResourceException e) {
++            return "!" + key + "!"; //$NON-NLS-2$ //$NON-NLS-1$
++        }
++    }
++}
+--- /dev/null	1970-01-01 01:00:00.000000000 +0100
++++ eclipse.jdt.ui/org.eclipse.jdt.ui.tests/nls/pkg/Messages.properties	2004-11-12 14:38:06.000000000 +0000
+@@ -0,0 +1,15 @@
++###############################################################################
++# Copyright (c) 2000, 2004 IBM Corporation and others.
++# All rights reserved. This program and the accompanying materials 
++# are made available under the terms of the Common Public License v1.0
++# which accompanies this distribution, and is available at
++# http://www.eclipse.org/legal/cpl-v10.html
++# 
++# Contributors:
++#     IBM Corporation - initial API and implementation
++###############################################################################
++test= Hello World
++duplicate= Duplicate 1
++test.long.key= Hello World Long
++duplicate= Duplicate 2
++SearchResultView.removed_resource= <removed resource>

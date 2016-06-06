@@ -1,0 +1,214 @@
+From 87d512619f0b0b05332e4c83f651f29bfa50c5e9 Mon Sep 17 00:00:00 2001
+From: Snjezana Peco
+Date: Tue, 24 Nov 2015 13:46:51 +0100
+Subject: Bug 478962 - [GTK3] Eclipse Mars SR1 consumes 60% CPU while idling
+
+The
+https://git.gnome.org/browse/gtk+/commit/?id=fe51ac273c8045279a222c22a52d297d5ede4169
+commit changes the state of a node instead of copying the style info.
+When getting some properties (color, background color, border, padding),
+SWT changes the state of the node 0 (OS.GTK_STATE_FLAG_NORMAL) which
+sometimes causes a widget to continously repaint.
+For example:
+SWT uses the following method to get the background color:
+
+OS.gtk_style_context_get_background_color (context,
+OS.GTK_STATE_FLAG_NORMAL, rgba);
+
+This method changes the state of a node to 0 (OS.GTK_STATE_FLAG_NORMAL).
+CTabFolder calls the method from inside the paint listener which causes an
+infinite painting loop.
+
+This commit fixes the issue by using the widget's current style state
+instead of OS.GTK_STATE_FLAG_NORMAL.
+
+Change-Id: I4dd27e3f6c5895a115fd76788ca2b2322aad6c4d
+Signed-off-by: Snjezana Peco <snjeza.peco@gmail.com>
+---
+ bundles/org.eclipse.swt/Eclipse SWT PI/gtk/library/os.c |  8 ++++----
+ .../gtk/org/eclipse/swt/internal/gtk/OS.java            |  4 ++--
+ .../gtk/org/eclipse/swt/widgets/Control.java            | 17 +++++++++++------
+ .../gtk/org/eclipse/swt/widgets/DateTime.java           |  8 +++++---
+ .../gtk/org/eclipse/swt/widgets/Spinner.java            |  5 +++--
+ .../Eclipse SWT/gtk/org/eclipse/swt/widgets/Text.java   |  3 ++-
+ 6 files changed, 27 insertions(+), 18 deletions(-)
+
+diff --git a/bundles/org.eclipse.swt/Eclipse SWT PI/gtk/library/os.c b/bundles/org.eclipse.swt/Eclipse SWT PI/gtk/library/os.c
+index c0dff7f..52ade78 100644
+--- a/bundles/org.eclipse.swt/Eclipse SWT PI/gtk/library/os.c	
++++ b/bundles/org.eclipse.swt/Eclipse SWT PI/gtk/library/os.c	
+@@ -18341,18 +18341,18 @@ fail:
+ #endif
+ 
+ #ifndef NO__1gtk_1widget_1get_1state_1flags
+-JNIEXPORT jintLong JNICALL OS_NATIVE(_1gtk_1widget_1get_1state_1flags)
++JNIEXPORT jint JNICALL OS_NATIVE(_1gtk_1widget_1get_1state_1flags)
+ 	(JNIEnv *env, jclass that, jintLong arg0)
+ {
+-	jintLong rc = 0;
++	jint rc = 0;
+ 	OS_NATIVE_ENTER(env, that, _1gtk_1widget_1get_1state_1flags_FUNC);
+ /*
+-	rc = (jintLong)gtk_widget_get_state_flags((GtkWidget *)arg0);
++	rc = (jint)gtk_widget_get_state_flags((GtkWidget *)arg0);
+ */
+ 	{
+ 		OS_LOAD_FUNCTION(fp, gtk_widget_get_state_flags)
+ 		if (fp) {
+-			rc = (jintLong)((jintLong (CALLING_CONVENTION*)(GtkWidget *))fp)((GtkWidget *)arg0);
++			rc = (jint)((jintLong (CALLING_CONVENTION*)(GtkWidget *))fp)((GtkWidget *)arg0);
+ 		}
+ 	}
+ 	OS_NATIVE_EXIT(env, that, _1gtk_1widget_1get_1state_1flags_FUNC);
+diff --git a/bundles/org.eclipse.swt/Eclipse SWT PI/gtk/org/eclipse/swt/internal/gtk/OS.java b/bundles/org.eclipse.swt/Eclipse SWT PI/gtk/org/eclipse/swt/internal/gtk/OS.java
+index 0ee6dda..a7fb6fe 100644
+--- a/bundles/org.eclipse.swt/Eclipse SWT PI/gtk/org/eclipse/swt/internal/gtk/OS.java	
++++ b/bundles/org.eclipse.swt/Eclipse SWT PI/gtk/org/eclipse/swt/internal/gtk/OS.java	
+@@ -11855,8 +11855,8 @@ public static final void gtk_style_context_restore(long /*int*/ context) {
+ /** @method flags=dynamic
+  *  @param self cast=(GtkWidget *)
+  *  */
+-public static final native long /*int*/ _gtk_widget_get_state_flags(long /*int*/ self);
+-public static final long /*int*/ gtk_widget_get_state_flags(long /*int*/ self) {
++public static final native int _gtk_widget_get_state_flags(long /*int*/ self);
++public static final int gtk_widget_get_state_flags(long /*int*/ self) {
+ 	lock.lock();
+ 	try {
+ 		return _gtk_widget_get_state_flags(self);
+diff --git a/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Control.java b/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Control.java
+index 7061084..ecf2da0 100644
+--- a/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Control.java	
++++ b/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Control.java	
+@@ -2585,8 +2585,9 @@
+ 		}
+ 	} else {
+ 		long /*int*/ context = OS.gtk_widget_get_style_context (fontHandle);
++		int styleState = OS.gtk_widget_get_state_flags(handle);
+ 		GdkRGBA rgba = new GdkRGBA ();
+-		OS.gtk_style_context_get_background_color (context, OS.GTK_STATE_FLAG_NORMAL, rgba);
++		OS.gtk_style_context_get_background_color (context, styleState, rgba);
+ 		if (rgba.alpha == 0) {
+ 			return display.COLOR_WIDGET_BACKGROUND;
+ 		}
+@@ -2625,8 +2626,9 @@ GdkColor getContextBackground () {
+ GdkColor getContextColor () {
+ 	long /*int*/ fontHandle = fontHandle ();
+ 	long /*int*/ context = OS.gtk_widget_get_style_context (fontHandle);
++	int styleState = OS.gtk_widget_get_state_flags(handle);
+ 	GdkRGBA rgba = new GdkRGBA ();
+-	rgba = display.styleContextGetColor (context, OS.GTK_STATE_FLAG_NORMAL, rgba);
++	rgba = display.styleContextGetColor (context, styleState, rgba);
+ 	GdkColor color = new GdkColor ();
+ 	color.red = (short)(rgba.red * 0xFFFF);
+ 	color.green = (short)(rgba.green * 0xFFFF);
+@@ -2761,7 +2763,8 @@ long /*int*/ getFontDescription () {
+ 	long /*int*/ fontHandle = fontHandle ();
+ 	if (OS.GTK3) {
+ 		long /*int*/ context = OS.gtk_widget_get_style_context (fontHandle);
+-		return OS.gtk_style_context_get_font(context, OS.GTK_STATE_FLAG_NORMAL);
++		int styleState = OS.gtk_widget_get_state_flags(fontHandle);
++		return OS.gtk_style_context_get_font(context, styleState);
+ 	}
+ 	OS.gtk_widget_realize (fontHandle);
+ 	return OS.gtk_style_get_font_desc (OS.gtk_widget_get_style (fontHandle));
+@@ -3021,12 +3024,13 @@ Point getThickness (long /*int*/ widget) {
+ 		int xthickness = 0, ythickness = 0;
+ 		GtkBorder tmp = new GtkBorder();
+ 		long /*int*/ context = OS.gtk_widget_get_style_context (widget);
++		int styleState = OS.gtk_widget_get_state_flags(widget);
+ 		OS.gtk_style_context_save (context);
+ 		OS.gtk_style_context_add_class (context, OS.GTK_STYLE_CLASS_FRAME);
+-		OS.gtk_style_context_get_padding (context, OS.GTK_STATE_FLAG_NORMAL, tmp);
++		OS.gtk_style_context_get_padding (context, styleState, tmp);
+ 		xthickness += tmp.left;
+ 		ythickness += tmp.top;
+-		OS.gtk_style_context_get_border (context, OS.GTK_STATE_FLAG_NORMAL, tmp);
++		OS.gtk_style_context_get_border (context, styleState, tmp);
+ 		xthickness += tmp.left;
+ 		ythickness += tmp.top;
+ 		OS.gtk_style_context_restore (context);
+@@ -5595,7 +5599,8 @@ long /*int*/ windowProc (long /*int*/ handle, long /*int*/ arg0, long /*int*/ us
+ 				if (OS.GTK3 && !draw && (state & CANVAS) != 0) {
+ 					GdkRGBA rgba = new GdkRGBA();
+ 					long /*int*/ context = OS.gtk_widget_get_style_context (handle);
+-					OS.gtk_style_context_get_background_color (context, OS.GTK_STATE_FLAG_NORMAL, rgba);
++					int styleState = OS.gtk_widget_get_state_flags(handle);
++					OS.gtk_style_context_get_background_color (context, styleState, rgba);
+ 					draw = rgba.alpha == 0;
+ 				}
+ 				if (draw) {
+diff --git a/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/DateTime.java b/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/DateTime.java
+index 12bca54..81780bd 100644
+--- a/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/DateTime.java	
++++ b/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/DateTime.java	
+@@ -296,13 +296,14 @@ public Rectangle computeTrim (int x, int y, int width, int height) {
+ 		if (OS.GTK3) {
+ 			GtkBorder tmp = new GtkBorder ();
+ 			long /*int*/ context = OS.gtk_widget_get_style_context (textEntryHandle);
+-			OS.gtk_style_context_get_padding (context, OS.GTK_STATE_FLAG_NORMAL, tmp);
++			int styleState = OS.gtk_widget_get_state_flags(textEntryHandle);
++			OS.gtk_style_context_get_padding (context, styleState, tmp);
+ 			trim.x -= tmp.left;
+ 			trim.y -= tmp.top;
+ 			trim.width += tmp.left + tmp.right;
+ 			trim.height += tmp.top + tmp.bottom;
+ 			if ((style & SWT.BORDER) != 0) {
+-				OS.gtk_style_context_get_border (context, OS.GTK_STATE_FLAG_NORMAL, tmp);
++				OS.gtk_style_context_get_border (context, styleState, tmp);
+ 				trim.x -= tmp.left;
+ 				trim.y -= tmp.top;
+ 				trim.width += tmp.left + tmp.right;
+@@ -1738,7 +1739,8 @@ GtkBorder getGtkBorderPadding () {
+ 		//In Gtk3, acquire border.
+ 		GtkBorder gtkBorderPadding = new GtkBorder ();
+ 		long /*int*/ context = OS.gtk_widget_get_style_context (textEntryHandle);
+-		OS.gtk_style_context_get_padding (context, OS.GTK_STATE_FLAG_NORMAL, gtkBorderPadding);
++		int styleState = OS.gtk_widget_get_state_flags(textEntryHandle);
++		OS.gtk_style_context_get_padding (context, styleState, gtkBorderPadding);
+ 		return gtkBorderPadding;
+ 	} else {
+ 		//in GTK2 hard code the padding
+diff --git a/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Spinner.java b/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Spinner.java
+index 7550122..3bbb886 100644
+--- a/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Spinner.java	
++++ b/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Spinner.java	
+@@ -255,9 +255,10 @@ public Rectangle computeTrim (int x, int y, int width, int height) {
+ 	if (OS.GTK3) {
+ 		GtkBorder tmp = new GtkBorder();
+ 		long /*int*/ context = OS.gtk_widget_get_style_context (handle);
+-		OS.gtk_style_context_get_padding (context, OS.GTK_STATE_FLAG_NORMAL, tmp);
++		int styleState = OS.gtk_widget_get_state_flags(handle);
++		OS.gtk_style_context_get_padding (context, styleState, tmp);
+ 		if ((style & SWT.BORDER) != 0) {
+-			OS.gtk_style_context_get_border (context, OS.GTK_STATE_FLAG_NORMAL, tmp);
++			OS.gtk_style_context_get_border (context, styleState, tmp);
+ 			trim.x -= tmp.left;
+ 			trim.y -= tmp.top;
+ 			trim.width += tmp.left + tmp.right;
+diff --git a/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Text.java b/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Text.java
+index ee9172e..8d5d0ba 100644
+--- a/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Text.java	
++++ b/bundles/org.eclipse.swt/Eclipse SWT/gtk/org/eclipse/swt/widgets/Text.java	
+@@ -591,7 +591,8 @@ public Rectangle computeTrim (int x, int y, int width, int height) {
+ 		if (OS.GTK3) {
+ 			GtkBorder tmp = new GtkBorder();
+ 			long /*int*/ context = OS.gtk_widget_get_style_context (handle);
+-			OS.gtk_style_context_get_padding (context, OS.GTK_STATE_FLAG_NORMAL, tmp);
++			int styleState = OS.gtk_widget_get_state_flags(handle);
++			OS.gtk_style_context_get_padding (context, styleState, tmp);
+ 			trim.x -= tmp.left;
+ 			trim.y -= tmp.top;
+ 			trim.width += tmp.left + tmp.right;
+@@ -598,7 +602,7 @@ public Rectangle computeTrim (int x, int y, int width, int height) {
+ 			trim.width += tmp.left + tmp.right;
+ 			trim.height += tmp.top + tmp.bottom;
+ 			if ((style & SWT.BORDER) != 0) {
+-				OS.gtk_style_context_get_border (context, OS.GTK_STATE_FLAG_NORMAL, tmp);
++				OS.gtk_style_context_get_border (context, styleState, tmp);
+ 				trim.x -= tmp.left;
+ 				trim.y -= tmp.top;
+ 				trim.width += tmp.left + tmp.right;
+-- 
+cgit v0.11.2-4-g4a35
+
+
