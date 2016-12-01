@@ -1,0 +1,232 @@
+diff --git a/eclipse.platform.ui/features/org.eclipse.e4.rcp/feature.xml b/eclipse.platform.ui/features/org.eclipse.e4.rcp/feature.xml
+index 7e1f520..734dd10 100644
+--- a/eclipse.platform.ui/features/org.eclipse.e4.rcp/feature.xml
++++ b/eclipse.platform.ui/features/org.eclipse.e4.rcp/feature.xml
+@@ -423,6 +423,26 @@
+          install-size="0"
+          version="0.0.0"
+          fragment="true"/>
++         
++   <plugin
++         id="org.eclipse.equinox.launcher.gtk.linux.arm"
++         os="linux"
++         ws="gtk"
++         arch="arm"
++         download-size="0"
++         install-size="0"
++         version="0.0.0"
++         fragment="true"/>
++
++   <plugin
++         id="org.eclipse.equinox.launcher.gtk.linux.aarch64"
++         os="linux"
++         ws="gtk"
++         arch="aarch64"
++         download-size="0"
++         install-size="0"
++         version="0.0.0"
++         fragment="true"/>
+ 
+    <plugin
+          id="org.eclipse.equinox.launcher.gtk.linux.x86"
+@@ -597,6 +627,28 @@
+          version="0.0.0"
+          fragment="true"
+          unpack="false"/>
++         
++   <plugin
++         id="org.eclipse.swt.gtk.linux.arm"
++         os="linux"
++         ws="gtk"
++         arch="arm"
++         download-size="0"
++         install-size="0"
++         version="0.0.0"
++         fragment="true"
++         unpack="false"/>
++
++   <plugin
++         id="org.eclipse.swt.gtk.linux.aarch64"
++         os="linux"
++         ws="gtk"
++         arch="aarch64"
++         download-size="0"
++         install-size="0"
++         version="0.0.0"
++         fragment="true"
++         unpack="false"/>
+ 
+    <plugin
+          id="org.eclipse.swt.gtk.linux.ppc"
+diff --git a/rt.equinox.framework/features/org.eclipse.equinox.executable.feature/library/gtk/build.sh b/rt.equinox.framework/features/org.eclipse.equinox.executable.feature/library/gtk/build.sh
+index 29d3871..45526c8 100644
+--- a/rt.equinox.framework/features/org.eclipse.equinox.executable.feature/library/gtk/build.sh
++++ b/rt.equinox.framework/features/org.eclipse.equinox.executable.feature/library/gtk/build.sh
+@@ -119,6 +125,16 @@
+ 				defaultJava=DEFAULT_JAVA_EXEC
+ 				OUTPUT_DIR="$EXEC_DIR/bin/$defaultWS/$defaultOS/$defaultOSArch"
+ 				;;
++			arm*)
++				defaultOSArch="arm"
++				defaultJava=DEFAULT_JAVA_EXEC
++				OUTPUT_DIR="$EXEC_DIR/bin/$defaultWS/$defaultOS/$defaultOSArch"
++				;;
++			"aarch64")
++				defaultOSArch="aarch64"
++				defaultJava=DEFAULT_JAVA_EXEC
++				OUTPUT_DIR="$EXEC_DIR/bin/$defaultWS/$defaultOS/$defaultOSArch"
++				;;
+ 			*)
+ 				echo "*** Unknown MODEL <${MODEL}>"
+ 				;;
+--- a/rt.equinox.framework/features/org.eclipse.equinox.executable.feature/pom.xml	2014-11-28 15:09:42.000000000 +0000
++++ b/rt.equinox.framework/features/org.eclipse.equinox.executable.feature/pom.xml	2014-11-28 16:52:00.315007846 +0000
+@@ -219,6 +219,128 @@
+         </plugins>
+       </build>
+     </profile>
++
++    <profile>
++      <id>build-native-launchers-gtk.linux.ppc</id>
++      <activation>
++        <property>
++          <name>native</name>
++          <value>gtk.linux.ppc</value>
++        </property>
++      </activation>
++      <build>
++        <plugins>
++          <plugin>
++            <artifactId>maven-antrun-plugin</artifactId>
++            <executions>
++              <execution>
++                <id>compile-executable-natives</id>
++                <phase>generate-resources</phase>
++                <configuration>
++                  <target>
++                    <ant antfile="build.xml" dir="library/gtk/" target="build_eclipse"/>
++                  </target>
++                </configuration>
++                <goals>
++                  <goal>run</goal>
++                </goals>
++              </execution>
++            </executions>
++          </plugin>
++        </plugins>
++      </build>
++    </profile>
++    <profile>
++      <id>build-native-launchers-gtk.linux.ppc64</id>
++      <activation>
++        <property>
++          <name>native</name>
++          <value>gtk.linux.ppc64</value>
++        </property>
++      </activation>
++      <build>
++        <plugins>
++          <plugin>
++            <artifactId>maven-antrun-plugin</artifactId>
++            <executions>
++              <execution>
++                <id>compile-executable-natives</id>
++                <phase>generate-resources</phase>
++                <configuration>
++                  <target>
++                    <ant antfile="build.xml" dir="library/gtk/" target="build_eclipse"/>
++                  </target>
++                </configuration>
++                <goals>
++                  <goal>run</goal>
++                </goals>
++              </execution>
++            </executions>
++          </plugin>
++        </plugins>
++      </build>
++    </profile>
++    <profile>
++      <id>build-native-launchers-gtk.linux.s390x</id>
++      <activation>
++        <property>
++          <name>native</name>
++          <value>gtk.linux.s390x</value>
++        </property>
++      </activation>
++      <build>
++        <plugins>
++          <plugin>
++            <artifactId>maven-antrun-plugin</artifactId>
++            <executions>
++              <execution>
++                <id>compile-executable-natives</id>
++                <phase>generate-resources</phase>
++                <configuration>
++                  <target>
++                    <ant antfile="build.xml" dir="library/gtk/" target="build_eclipse"/>
++                  </target>
++                </configuration>
++                <goals>
++                  <goal>run</goal>
++                </goals>
++              </execution>
++            </executions>
++          </plugin>
++        </plugins>
++      </build>
++    </profile>
++    <profile>
++      <id>build-native-launchers-gtk.linux.s390</id>
++      <activation>
++        <property>
++          <name>native</name>
++          <value>gtk.linux.s390</value>
++        </property>
++      </activation>
++      <build>
++        <plugins>
++          <plugin>
++            <artifactId>maven-antrun-plugin</artifactId>
++            <executions>
++              <execution>
++                <id>compile-executable-natives</id>
++                <phase>generate-resources</phase>
++                <configuration>
++                  <target>
++                    <ant antfile="build.xml" dir="library/gtk/" target="build_eclipse"/>
++                  </target>
++                </configuration>
++                <goals>
++                  <goal>run</goal>
++                </goals>
++              </execution>
++            </executions>
++          </plugin>
++        </plugins>
++      </build>
++    </profile>
++
+     <profile>
+       <id>build-native-launchers-win32.win32.x86_64</id>
+       <activation>
+@@ -347,8 +530,6 @@
+                         <include name="gtk/solaris/sparcv9/**/*"/>
+                         <include name="win32/win32/x86/**/*"/>
+                         <include name="win32/win32/x86_64/**/*"/>
+-                      </fileset>
+-                      <fileset dir="../../../rt.equinox.binaries/org.eclipse.equinox.executable/contributed/">
+                         <include name="gtk/linux/s390/**/*"/>
+                         <include name="gtk/linux/s390x/**/*"/>
+                       </fileset>
+--- a/rt.equinox.framework/features/org.eclipse.equinox.executable.feature/build.properties	2015-01-30 14:44:03.436891441 +0000
++++ b/rt.equinox.framework/features/org.eclipse.equinox.executable.feature/build.properties	2015-01-30 14:45:25.232480509 +0000
+@@ -59,4 +59,8 @@
+ root.linux.gtk.s390=bin/gtk/linux/s390,gtk_root
+ root.linux.gtk.s390.permissions.755=launcher
+ 
++root.linux.gtk.aarch64=bin/gtk/linux/aarch64,gtk_root
++root.linux.gtk.aarch64.permissions.755=launcher
++root.linux.gtk.arm=bin/gtk/linux/arm,gtk_root
++root.linux.gtk.arm.permissions.755=launcher
+ 

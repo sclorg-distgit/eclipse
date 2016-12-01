@@ -1,0 +1,41 @@
+--- "eclipse.platform.swt/bundles/org.eclipse.swt/Eclipse SWT WebKit/gtk/org/eclipse/swt/browser/WebKit.java.orig"	2016-04-29 11:07:16.540479847 +0100
++++ "eclipse.platform.swt/bundles/org.eclipse.swt/Eclipse SWT WebKit/gtk/org/eclipse/swt/browser/WebKit.java"	2016-04-29 11:10:18.983883107 +0100
+@@ -110,7 +110,9 @@
+ 
+ 		if (LibraryLoaded) {
+ 			String webkit2 = System.getenv("SWT_WEBKIT2"); // $NON-NLS-1$
+-			WEBKIT2 = webkit2 != null && webkit2.equals("1") && OS.GTK3; // $NON-NLS-1$
++			if (OS.GTK3) {
++				WEBKIT2 = webkit2 == null || webkit2.equals("1"); // $NON-NLS-1$
++			}
+ 
+ 			WebViewType = WebKitGTK.webkit_web_view_get_type ();
+ 
+--- "eclipse.platform.swt/bundles/org.eclipse.swt/Eclipse SWT WebKit/gtk/library/webkitgtk.h.orig"	2016-04-29 11:05:57.597603451 +0100
++++ "eclipse.platform.swt/bundles/org.eclipse.swt/Eclipse SWT WebKit/gtk/library/webkitgtk.h"	2016-04-29 11:07:04.101656890 +0100
+@@ -29,10 +29,10 @@
+ 		char *gtk3 = getenv("SWT_GTK3"); \
+ 		if (gtk3 == NULL || strcmp(gtk3, "1") == 0) { \
+ 			char *webkit2 = getenv("SWT_WEBKIT2"); \
+-			if (webkit2 != NULL && strcmp(webkit2, "1") == 0) { \
+-				handle = dlopen("libwebkit2gtk-4.0.so.37", LOAD_FLAGS); /* webkit2 */ \
+-			} else { \
++			if (webkit2 != NULL && strcmp(webkit2, "0") == 0) { \
+ 				handle = dlopen("libwebkitgtk-3.0.so.0", LOAD_FLAGS); /* webkitgtk >= 3.x lib */ \
++			} else { \
++				handle = dlopen("libwebkit2gtk-4.0.so.37", LOAD_FLAGS); /* webkit2 */ \
+ 			} \
+ 		} else { \
+ 			handle = dlopen("libwebkit-1.0.so.2", LOAD_FLAGS); /* webkitgtk 1.2.x lib */ \
+--- "./eclipse.platform.swt/bundles/org.eclipse.swt/Eclipse SWT Browser/gtk/org/eclipse/swt/browser/BrowserFactory.java.orig"	2016-04-29 12:15:18.524027606 +0100
++++ "./eclipse.platform.swt/bundles/org.eclipse.swt/Eclipse SWT Browser/gtk/org/eclipse/swt/browser/BrowserFactory.java"	2016-04-29 12:20:19.696980780 +0100
+@@ -16,9 +16,6 @@
+ 
+ WebBrowser createWebBrowser (int style) {
+ 	boolean webkitInstalled = WebKit.IsInstalled ();
+-	if ((style & SWT.MOZILLA) != 0 || (!webkitInstalled && (style & SWT.WEBKIT) == 0)) {
+-		return new Mozilla ();
+-	}
+ 	if (!webkitInstalled) return null;
+ 
+ 	return new WebKit ();

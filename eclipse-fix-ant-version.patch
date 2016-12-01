@@ -1,0 +1,30 @@
+--- ./eclipse.platform/ant/org.eclipse.ant.tests.ui/Ant Debug Tests/org/eclipse/ant/tests/ui/debug/PropertyTests.java.orig	2015-07-28 10:54:11.378383606 +0100
++++ ./eclipse.platform/ant/org.eclipse.ant.tests.ui/Ant Debug Tests/org/eclipse/ant/tests/ui/debug/PropertyTests.java	2015-07-28 10:53:08.509290691 +0100
+@@ -24,7 +24,7 @@
+ 
+ public class PropertyTests extends AbstractAntDebugTest {
+ 
+-	private static final String ANT_VERSION = "Apache Ant(TM) version 1.9.6"; //$NON-NLS-1$
++	private static final String ANT_VERSION = "Apache Ant(TM) version 1.9.2"; //$NON-NLS-1$
+ 
+ 	public PropertyTests(String name) {
+ 		super(name);
+--- ./eclipse.platform/ant/org.eclipse.ant.tests.core/tests/org/eclipse/ant/tests/core/tests/OptionTests.java.orig	2016-02-28 14:27:56.000000000 +0000
++++ ./eclipse.platform/ant/org.eclipse.ant.tests.core/tests/org/eclipse/ant/tests/core/tests/OptionTests.java	2016-03-24 09:58:22.543830386 +0000
+@@ -26,7 +26,7 @@
+ 
+ 	protected static final String UNKNOWN_ARG = "Unknown argument: "; //$NON-NLS-1$
+ 	protected static final String START_OF_HELP = "ant [options] [target [target2 [target3] ...]]"; //$NON-NLS-1$
+-	protected static final String VERSION = "Apache Ant(TM) version 1.9.6"; //$NON-NLS-1$
++	protected static final String VERSION = "Apache Ant(TM) version 1.9.2"; //$NON-NLS-1$
+ 	protected static final String PLUGIN_VERSION = "org.apache.ant_1.9.6"; //$NON-NLS-1$
+ 
+ 	public OptionTests(String name) {
+@@ -671,4 +671,4 @@
+ 
+ 		assertTrue("The build should have failed", false); //$NON-NLS-1$
+ 	}
+-}
+\ No newline at end of file
++}
+

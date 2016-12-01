@@ -1,0 +1,36 @@
+--- rt.equinox.bundles/bundles/org.eclipse.equinox.http.jetty9/src/org/eclipse/equinox/http/jetty/internal/HttpServerManager.java.old	2016-06-15 10:29:35.370386868 +0100
++++ rt.equinox.bundles/bundles/org.eclipse.equinox.http.jetty9/src/org/eclipse/equinox/http/jetty/internal/HttpServerManager.java	2016-06-15 10:59:31.120348432 +0100
+@@ -26,7 +26,6 @@
+ import org.eclipse.equinox.http.servlet.HttpServiceMultipartServlet;
+ import org.eclipse.equinox.http.servlet.HttpServiceServlet;
+ import org.eclipse.jetty.server.*;
+-import org.eclipse.jetty.server.session.HashSessionManager;
+ import org.eclipse.jetty.server.session.SessionHandler;
+ import org.eclipse.jetty.servlet.ServletContextHandler;
+ import org.eclipse.jetty.servlet.ServletHolder;
+@@ -144,9 +143,9 @@
+ 		// This servlet has no mapping as it's only used from named dispatcher
+ 		httpContext.getServletHandler().addServlet(multiPartHolder);
+ 
+-		SessionManager sessionManager = httpContext.getSessionHandler().getSessionManager();
++		SessionHandler sessionHandler = httpContext.getSessionHandler();
+ 		try {
+-			sessionManager.addEventListener((HttpSessionIdListener) holder.getServlet());
++			sessionHandler.addEventListener((HttpSessionIdListener) holder.getServlet());
+ 		} catch (ServletException e) {
+ 			throw new ConfigurationException(pid, e.getMessage(), e);
+ 		}
+@@ -241,10 +240,10 @@
+ 		contextWorkDir.mkdir();
+ 		httpContext.setAttribute(CONTEXT_TEMPDIR, contextWorkDir);
+ 
+-		HashSessionManager sessionManager = new HashSessionManager();
+-		sessionManager.setMaxInactiveInterval(Details.getInt(dictionary, JettyConstants.CONTEXT_SESSIONINACTIVEINTERVAL, -1));
++		SessionHandler sessionHandler = new SessionHandler();
++		sessionHandler.setMaxInactiveInterval(Details.getInt(dictionary, JettyConstants.CONTEXT_SESSIONINACTIVEINTERVAL, -1));
+ 
+-		httpContext.setSessionHandler(new SessionHandler(sessionManager));
++		httpContext.setSessionHandler(sessionHandler);
+ 
+ 		return httpContext;
+ 	}

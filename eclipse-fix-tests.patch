@@ -1,0 +1,210 @@
+--- eclipse.pde.ui/ui/org.eclipse.pde.ui.tests/src/org/eclipse/pde/ui/tests/target/MinimalTargetDefinitionPersistenceTests.java.orig	2016-04-19 20:07:36.947017206 +0100
++++ eclipse.pde.ui/ui/org.eclipse.pde.ui.tests/src/org/eclipse/pde/ui/tests/target/MinimalTargetDefinitionPersistenceTests.java	2016-04-19 20:09:59.166077383 +0100
+@@ -77,7 +77,7 @@
+ 	 */
+ 	protected IPath getJdtFeatureLocation() {
+ 		IPath path = new Path(TargetPlatform.getDefaultLocation());
+-		path = path.append("features");
++		path = path.append("droplets").append("eclipse-jdt").append("eclipse").append("features");
+ 		File dir = path.toFile();
+ 		assertTrue("Missing features directory", dir.exists() && !dir.isFile());
+ 		String[] files = dir.list();
+@@ -613,4 +613,4 @@
+ 		assertTrue(iubc.getIncludeSource());
+ 	}
+ 
+-}
+\ No newline at end of file
++}
+diff --git rt.equinox.p2/bundles/org.eclipse.equinox.p2.tests/src/org/eclipse/equinox/p2/tests/reconciler/dropins/AbstractReconcilerTest.java rt.equinox.p2/bundles/org.eclipse.equinox.p2.tests/src/org/eclipse/equinox/p2/tests/reconciler/dropins/AbstractReconcilerTest.java
+index f1f38f0..f9111e6 100644
+--- rt.equinox.p2/bundles/org.eclipse.equinox.p2.tests/src/org/eclipse/equinox/p2/tests/reconciler/dropins/AbstractReconcilerTest.java
++++ rt.equinox.p2/bundles/org.eclipse.equinox.p2.tests/src/org/eclipse/equinox/p2/tests/reconciler/dropins/AbstractReconcilerTest.java
+@@ -217,7 +217,7 @@ public class AbstractReconcilerTest extends AbstractProvisioningTest {
+ 						File[] children = parent.listFiles(new FileFilter() {
+ 							public boolean accept(File pathname) {
+ 								String name = pathname.getName();
+-								return name.startsWith("eclipse-platform-");
++								return name.startsWith("eclipse-SDK-");
+ 							}
+ 						});
+ 						if (children != null && children.length == 1)
+diff --git eclipse.jdt.core/org.eclipse.jdt.apt.pluggable.tests/build.properties eclipse.jdt.core/org.eclipse.jdt.apt.pluggable.tests/build.properties
+index 376daa6..1742a8d 100644
+--- eclipse.jdt.core/org.eclipse.jdt.apt.pluggable.tests/build.properties
++++ eclipse.jdt.core/org.eclipse.jdt.apt.pluggable.tests/build.properties
+@@ -14,6 +14,7 @@ bin.includes = .,\
+                resources/,\
+                lib/
+ src.includes = about.html
+-jars.compile.order = .
++jars.compile.order = .,\
++                     lib/annotations.jar
+ source.. = src/
+-output.. = bin/
++source.lib/annotations.jar = src/
+diff --git eclipse.jdt.core/org.eclipse.jdt.apt.tests/build.properties eclipse.jdt.core/org.eclipse.jdt.apt.tests/build.properties
+index f34ae40..0f9877d 100644
+--- eclipse.jdt.core/org.eclipse.jdt.apt.tests/build.properties
++++ eclipse.jdt.core/org.eclipse.jdt.apt.tests/build.properties
+@@ -21,4 +21,6 @@ bin.includes = plugin.xml,\
+                plugin.properties
+ src.includes = about.html
+ src.excludes = src-resources/
+-jars.compile.order = aptext.jar,apt.jar,.
++jars.compile.order = aptext.jar,apt.jar,.,\
++                     resources/question.jar
++source.resources/question.jar = src-resources/
+diff --git eclipse.jdt.core/org.eclipse.jdt.compiler.apt.tests/build.properties eclipse.jdt.core/org.eclipse.jdt.compiler.apt.tests/build.properties
+index bc8963d..fbe4da3 100644
+--- eclipse.jdt.core/org.eclipse.jdt.compiler.apt.tests/build.properties
++++ eclipse.jdt.core/org.eclipse.jdt.compiler.apt.tests/build.properties
+@@ -10,11 +10,6 @@
+ #     Red Hat Inc. (mistria) - Avoid nested jars
+ ###############################################################################
+ source.. = src/
+-output.. = bin/
+-# Don't rebuild apttestprocessors everytime to avoid dirty working tree
+-# lib/apttestprocessors.jar considered as a resource set a dev-timeY
+-#source.lib/apttestprocessors.jar = processors/
+-#jars.compile.order = lib/apttestprocessors.jar,.
+ bin.includes = about.html,\
+                plugin.properties,\
+                test.xml,\
+@@ -24,3 +19,9 @@ bin.includes = about.html,\
+                .
+ src.includes = about.html
+ compilerArg=-proc:none
++source.lib/apttestprocessors.jar = processors/
++source.lib/apttestprocessors8.jar = processors/,\
++                                    processors8/
++jars.compile.order = lib/apttestprocessors.jar,\
++                     lib/apttestprocessors8.jar,\
++                     .
+--- eclipse.platform/ant/org.eclipse.ant.tests.ui/build.properties.orig	2016-03-24 14:25:47.076289150 +0000
++++ eclipse.platform/ant/org.eclipse.ant.tests.ui/build.properties	2016-03-24 14:26:39.528660802 +0000
+@@ -25,6 +25,8 @@
+                         Ant Tests/
+ 						
+ source.lib/antUITestsSupport.jar = test support/
+-jars.compile.order=anttestsui.jar,lib/antUITestsSupport.jar
++source.testbuildfiles/antUITestsSupport.jar = test support/
++jars.compile.order=anttestsui.jar,lib/antUITestsSupport.jar,testbuildfiles/antUITestsSupport.jar
+ output.lib/antUITestsSupport.jar = test_support_bin/
++output.testbuildfiles/antUITestsSupport.jar = test_support_bin/
+ output.anttestsui.jar = bin/
+--- eclipse.jdt.ui/org.eclipse.jdt.ui.tests/build.properties.orig	2016-03-25 15:09:40.557786910 +0000
++++ eclipse.jdt.ui/org.eclipse.jdt.ui.tests/build.properties	2016-03-25 15:12:08.476059326 +0000
+@@ -22,3 +22,5 @@
+             leaks/,\
+             performance/
+ javacWarnings..=-raw,-unchecked
++source.testresources/nls.jar = nls/
++jars.compile.order = .,testresources/nls.jar
+--- /dev/null	1970-01-01 01:00:00.000000000 +0100
++++ eclipse.jdt.ui/org.eclipse.jdt.ui.tests/nls/pkg/Client.java	2004-11-12 14:37:36.000000000 +0000
+@@ -0,0 +1,25 @@
++/*******************************************************************************
++ * Copyright (c) 2000, 2004 IBM Corporation and others.
++ * All rights reserved. This program and the accompanying materials 
++ * are made available under the terms of the Common Public License v1.0
++ * which accompanies this distribution, and is available at
++ * http://www.eclipse.org/legal/cpl-v10.html
++ * 
++ * Contributors:
++ *     IBM Corporation - initial API and implementation
++ *******************************************************************************/
++package pkg;
++
++public class Client {
++	
++    public String s;
++	
++	{
++		s= Messages.getString("test");
++		s= Messages.getString("test_undefined");
++		s= Messages.getString("duplicate");
++		s= Messages.getString("test.long.key");
++		s= Messages.getString("SearchResultView.removed_resource");
++	}
++
++}
+--- /dev/null	1970-01-01 01:00:00.000000000 +0100
++++ eclipse.jdt.ui/org.eclipse.jdt.ui.tests/nls/pkg/Messages.java	2004-11-12 14:37:28.000000000 +0000
+@@ -0,0 +1,58 @@
++/*******************************************************************************
++ * Copyright (c) 2000, 2004 IBM Corporation and others.
++ * All rights reserved. This program and the accompanying materials 
++ * are made available under the terms of the Common Public License v1.0
++ * which accompanies this distribution, and is available at
++ * http://www.eclipse.org/legal/cpl-v10.html
++ * 
++ * Contributors:
++ *     IBM Corporation - initial API and implementation
++ *******************************************************************************/
++package pkg;
++
++import java.text.MessageFormat;
++import java.util.MissingResourceException;
++import java.util.ResourceBundle;
++
++public class Messages extends Object {
++    private static final String RESOURCE_BUNDLE = Messages.class.getName();
++    private static ResourceBundle fgResourceBundle = ResourceBundle.getBundle(RESOURCE_BUNDLE);
++
++    private Messages() {}
++
++    /**
++     * Gets a string from the resource bundle and formats it with the argument
++     *
++     * @param key   the string used to get the bundle value, must not be null
++     */
++    public static String getFormattedString(String key, Object arg) {
++        String format = null;
++
++        try {
++            format = fgResourceBundle.getString(key);
++        } catch (MissingResourceException e) {
++            return "!" + key + "!"; //$NON-NLS-2$ //$NON-NLS-1$
++        }
++
++        if (arg == null) {
++            arg = ""; //$NON-NLS-1$
++        }
++
++        return MessageFormat.format(format, new Object[] { arg });
++    }
++
++    /**
++     * Gets a string from the resource bundle and formats it with arguments
++     */
++    public static String getFormattedString(String key, String[] args) {
++        return MessageFormat.format(fgResourceBundle.getString(key), args);
++    }
++
++    public static String getString(String key) {
++        try {
++            return fgResourceBundle.getString(key);
++        } catch (MissingResourceException e) {
++            return "!" + key + "!"; //$NON-NLS-2$ //$NON-NLS-1$
++        }
++    }
++}
+--- /dev/null	1970-01-01 01:00:00.000000000 +0100
++++ eclipse.jdt.ui/org.eclipse.jdt.ui.tests/nls/pkg/Messages.properties	2004-11-12 14:38:06.000000000 +0000
+@@ -0,0 +1,15 @@
++###############################################################################
++# Copyright (c) 2000, 2004 IBM Corporation and others.
++# All rights reserved. This program and the accompanying materials 
++# are made available under the terms of the Common Public License v1.0
++# which accompanies this distribution, and is available at
++# http://www.eclipse.org/legal/cpl-v10.html
++# 
++# Contributors:
++#     IBM Corporation - initial API and implementation
++###############################################################################
++test= Hello World
++duplicate= Duplicate 1
++test.long.key= Hello World Long
++duplicate= Duplicate 2
++SearchResultView.removed_resource= <removed resource>

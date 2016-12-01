@@ -1,0 +1,11 @@
+--- rt.equinox.p2/bundles/org.eclipse.equinox.p2.publisher.eclipse/src/org/eclipse/equinox/p2/publisher/eclipse/BundlesAction.java.orig	2016-04-17 00:05:41.751589113 +0100
++++ rt.equinox.p2/bundles/org.eclipse.equinox.p2.publisher.eclipse/src/org/eclipse/equinox/p2/publisher/eclipse/BundlesAction.java	2016-04-17 00:11:13.032263291 +0100
+@@ -519,8 +519,6 @@
+ 		try {
+ 			converter = acquirePluginConverter();
+ 			if (converter == null) {
+-				String message = NLS.bind(Messages.exception_noPluginConverter, bundleLocation);
+-				LogHelper.log(new Status(IStatus.ERROR, Activator.ID, message));
+ 				return null;
+ 			}
+ 			return converter.convertManifest(bundleLocation, false, null, true, null);

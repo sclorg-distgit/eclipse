@@ -1,0 +1,1934 @@
+From e9b5adb1d0477a50111afe5cf7736c542b7e4998 Mon Sep 17 00:00:00 2001
+From: Sopot Cela <scela@redhat.com>
+Date: Thu, 21 May 2015 13:48:41 +0200
+Subject: [PATCH] Bug 466829 - Upgrade platform.ua to Lucene 5.1.0
+
+Change-Id: I882188205c2c1e2cc1106108680dd4e94570a975
+Signed-off-by: Sopot Cela <scela@redhat.com>
+---
+
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/META-INF/MANIFEST.MF b/org.eclipse.help.base/META-INF/MANIFEST.MF
+index ee34c8e..e4bd703 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/META-INF/MANIFEST.MF
++++ b/eclipse.platform.ua/org.eclipse.help.base/META-INF/MANIFEST.MF
+@@ -43,9 +43,11 @@
+  org.eclipse.core.runtime;bundle-version="[3.11.0,4.0.0)",
+  org.eclipse.help;bundle-version="[3.5.0,4.0.0)";visibility:=reexport,
+  org.eclipse.core.expressions;bundle-version="[3.4.200,4.0.0)",
+- org.apache.lucene.analysis;bundle-version="[3.5.0,4.0.0)",
+- org.apache.lucene.core;bundle-version="[3.5.0,4.0.0)",
+- org.eclipse.core.net;bundle-version="1.2.200"
++ org.eclipse.core.net;bundle-version="1.2.200",
++ org.apache.lucene.analyzers-common;bundle-version="5.1.0",
++ org.apache.lucene.core;bundle-version="5.1.0",
++ org.apache.lucene.queryparser;bundle-version="5.1.0",
++ org.apache.lucene.analyzers-smartcn;bundle-version="5.1.0"
+ Import-Package: com.ibm.icu.text,
+  org.eclipse.equinox.http.jetty;resolution:=optional
+ Bundle-RequiredExecutionEnvironment: JavaSE-1.7
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/plugin.xml b/org.eclipse.help.base/plugin.xml
+index 07a5a22..4daf3f0 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/plugin.xml
++++ b/eclipse.platform.ua/org.eclipse.help.base/plugin.xml
+@@ -83,7 +83,7 @@
+       </analyzer>
+       <analyzer
+             locale="zh"
+-            class="org.apache.lucene.analysis.cn.ChineseAnalyzer">
++            class="org.apache.lucene.analysis.cn.smart.SmartChineseAnalyzer">
+       </analyzer>
+       <analyzer
+             locale="cs"
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/AnalyzerFactory.java b/org.eclipse.help.base/src/org/eclipse/help/internal/search/AnalyzerFactory.java
+index 4ea3b21..704b0e9 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/AnalyzerFactory.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/AnalyzerFactory.java
+@@ -7,6 +7,7 @@
+  *
+  * Contributors:
+  *     IBM Corporation - initial API and implementation
++ *     Sopot Cela - Bug 466829 - Migration to Lucene 5
+  *******************************************************************************/
+ package org.eclipse.help.internal.search;
+ 
+@@ -19,8 +20,9 @@
+ import org.apache.lucene.analysis.fr.FrenchAnalyzer;
+ import org.apache.lucene.analysis.nl.DutchAnalyzer;
+ import org.apache.lucene.analysis.ru.RussianAnalyzer;
+-import org.apache.lucene.util.Version;
+-import org.eclipse.core.runtime.*;
++import org.eclipse.core.runtime.CoreException;
++import org.eclipse.core.runtime.IConfigurationElement;
++import org.eclipse.core.runtime.IExecutableExtension;
+ 
+ /**
+  * A factory responsible for instantiating a lucene {@link Analyzer}.
+@@ -30,27 +32,26 @@
+ 	public Analyzer create() {
+ 		if (locale == null)
+ 			return null;
+-		Version version = Version.LUCENE_35;
+ 		if ("pt".equals(locale)) //$NON-NLS-1$
+-			return new BrazilianAnalyzer(version);
++			return new BrazilianAnalyzer();
+ 		if ("ja".equals(locale)) //$NON-NLS-1$
+-			return new CJKAnalyzer(version);
++			return new CJKAnalyzer();
+ 		if ("ko".equals(locale)) //$NON-NLS-1$
+-			return new CJKAnalyzer(version);
++			return new CJKAnalyzer();
+ 		if ("pt".equals(locale)) //$NON-NLS-1$
+-			return new BrazilianAnalyzer(version);
++			return new BrazilianAnalyzer();
+ 		if ("cs".equals(locale)) //$NON-NLS-1$
+-			return new CzechAnalyzer(version);
++			return new CzechAnalyzer();
+ 		if ("de".equals(locale)) //$NON-NLS-1$
+-			return new GermanAnalyzer(version);
++			return new GermanAnalyzer();
+ 		if ("el".equals(locale)) //$NON-NLS-1$
+-			return new GreekAnalyzer(version);
++			return new GreekAnalyzer();
+ 		if ("fr".equals(locale)) //$NON-NLS-1$
+-			return new FrenchAnalyzer(version);
++			return new FrenchAnalyzer();
+ 		if ("nl".equals(locale)) //$NON-NLS-1$
+-			return new DutchAnalyzer(version);
++			return new DutchAnalyzer();
+ 		if ("ru".equals(locale)) //$NON-NLS-1$
+-			return new RussianAnalyzer(version);
++			return new RussianAnalyzer();
+ 		//unknown language
+ 		return null;
+ 
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/Analyzer_en.java b/org.eclipse.help.base/src/org/eclipse/help/internal/search/Analyzer_en.java
+index a066aa4..a2183f9 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/Analyzer_en.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/Analyzer_en.java
+@@ -8,18 +8,25 @@
+  * Contributors:
+  *     IBM Corporation - initial API and implementation
+  *     Alexander Kurtakov - Bug 460787
++ *     Sopot Cela - Bug 466829 - Migration to Lucene 5
+  *******************************************************************************/
+ package org.eclipse.help.internal.search;
+-import java.io.*;
+-import java.util.HashSet;
+-import java.util.Set;
++import java.util.ArrayList;
++import java.util.List;
+ 
+-import org.apache.lucene.analysis.*;
+-import org.apache.lucene.util.Version;
++import org.apache.lucene.analysis.Analyzer;
++import org.apache.lucene.analysis.TokenStream;
++import org.apache.lucene.analysis.Tokenizer;
++import org.apache.lucene.analysis.core.StopFilter;
++import org.apache.lucene.analysis.en.EnglishPossessiveFilter;
++import org.apache.lucene.analysis.en.PorterStemFilter;
++import org.apache.lucene.analysis.miscellaneous.KeywordRepeatFilter;
++import org.apache.lucene.analysis.util.CharArraySet;
+ /**
+  * Lucene Analyzer for English. LowerCaseTokenizer->StopFilter->PorterStemFilter
+  */
+ public final class Analyzer_en extends Analyzer {
++
+ 	/**
+ 	 * Constructor for Analyzer_en.
+ 	 */
+@@ -27,19 +34,25 @@
+ 		super();
+ 	}
+ 	/**
+-	 * Creates a TokenStream which tokenizes all the text in the provided
++	 * Creates a TokenStreamComponents which tokenizes all the text in the provided
+ 	 * Reader.
+ 	 */
+ 	@Override
+-	public final TokenStream tokenStream(String fieldName, Reader reader) {
+-		return new PorterStemFilter(new StopFilter(Version.LUCENE_30, new LowerCaseAndDigitsTokenizer(reader), getStopWords(), false));
++	public final TokenStreamComponents createComponents(String fieldName) {
++			final Tokenizer source;
++	      	source = new LowerCaseAndDigitsTokenizer();
++	      	TokenStream result = new EnglishPossessiveFilter(source);
++		    result = new StopFilter(result, new CharArraySet(getStopWords(), false));
++		    result = new KeywordRepeatFilter(result);
++		    result = new PorterStemFilter(result);
++		    return new TokenStreamComponents(source, result);
+ 	}
+ 
+-	private Set<String> stopWords;
++	private List<String> stopWords;
+ 
+-	private Set<String> getStopWords() {
++	private List<String> getStopWords() {
+ 		if ( stopWords == null ) {
+-			stopWords = new HashSet<>();
++			stopWords = new ArrayList<>();
+ 			for (int i = 0; i < STOP_WORDS.length; i++) {
+ 			    stopWords.add(STOP_WORDS[i]);
+ 			}
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/DefaultAnalyzer.java b/org.eclipse.help.base/src/org/eclipse/help/internal/search/DefaultAnalyzer.java
+index 4109474..e3c8722 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/DefaultAnalyzer.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/DefaultAnalyzer.java
+@@ -7,22 +7,20 @@
+  * Contributors:
+  *     IBM Corporation - initial API and implementation
+  *     Alexander Kurtakov - Bug 460787
++ *     Sopot Cela - Bug 466829 - Migration to Lucene 5
+  *******************************************************************************/
+ package org.eclipse.help.internal.search;
+ 
+-import java.io.Reader;
+ import java.util.Locale;
+ import java.util.StringTokenizer;
+ 
+-import com.ibm.icu.text.BreakIterator;
+-
+ import org.apache.lucene.analysis.Analyzer;
+-import org.apache.lucene.analysis.LowerCaseFilter;
+-import org.apache.lucene.analysis.TokenStream;
+-import org.apache.lucene.util.Version;
++import org.apache.lucene.analysis.Tokenizer;
++import org.apache.lucene.analysis.core.LowerCaseFilter;
++import org.eclipse.core.runtime.Platform;
+ import org.eclipse.help.internal.base.HelpBasePlugin;
+ 
+-import org.eclipse.core.runtime.Platform;
++import com.ibm.icu.text.BreakIterator;
+ 
+ 
+ /**
+@@ -84,12 +82,14 @@
+ 	}
+ 
+ 	/**
+-	 * Creates a TokenStream which tokenizes all the text in the provided
++	 * Creates a TokenStreamComponents which tokenizes all the text in the provided
+ 	 * Reader.
+ 	 */
+ 	@Override
+-	public final TokenStream tokenStream(String fieldName, Reader reader) {
+-		return new LowerCaseFilter(Version.LUCENE_30, new WordTokenStream(fieldName, reader, locale));
++	public final TokenStreamComponents createComponents(String fieldName) {
++		Tokenizer source = new WordTokenStream(locale);
++		LowerCaseFilter filter = new LowerCaseFilter(source);
++		return new TokenStreamComponents(source, filter);
+ 	}
+ 
+ 	/**
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/LowerCaseAndDigitsTokenizer.java b/org.eclipse.help.base/src/org/eclipse/help/internal/search/LowerCaseAndDigitsTokenizer.java
+index a475688..cbb2472 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/LowerCaseAndDigitsTokenizer.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/LowerCaseAndDigitsTokenizer.java
+@@ -8,29 +8,27 @@
+  * Contributors:
+  *     IBM Corporation - initial API and implementation
+  *     Alexander Kurtakov - Bug 460787
++ *     Sopot Cela - Bug 466829 - Migration to Lucene 5
+  *******************************************************************************/
+ package org.eclipse.help.internal.search;
+ 
+-import java.io.*;
+-
+-import org.apache.lucene.analysis.*;
+-import org.apache.lucene.util.Version;
++import org.apache.lucene.analysis.util.CharTokenizer;
+ 
+ /**
+  * Tokenizer breaking words around letters or digits.
+  */
+ public class LowerCaseAndDigitsTokenizer extends CharTokenizer {
+ 
+-    public LowerCaseAndDigitsTokenizer(Reader input) {
+-        super(Version.LUCENE_30, input);
++    public LowerCaseAndDigitsTokenizer() {
++        super();
+     }
+     @Override
+-	protected char normalize(char c) {
++	protected int normalize(int c) {
+         return Character.toLowerCase(c);
+     }
+ 
+     @Override
+-	protected boolean isTokenChar(char c) {
++	public boolean isTokenChar(int c) {
+         return Character.isLetterOrDigit(c);
+     }
+ 
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/LuceneSearchDocument.java b/org.eclipse.help.base/src/org/eclipse/help/internal/search/LuceneSearchDocument.java
+index 60a545d..804bf5e 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/LuceneSearchDocument.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/LuceneSearchDocument.java
+@@ -7,6 +7,7 @@
+  *
+  * Contributors:
+  *     IBM Corporation - initial API and implementation
++ *     Sopot Cela - Bug 466829 - Migration to Lucene 5
+  *******************************************************************************/
+ 
+ package org.eclipse.help.internal.search;
+@@ -16,6 +17,8 @@
+ 
+ import org.apache.lucene.document.Document;
+ import org.apache.lucene.document.Field;
++import org.apache.lucene.document.StoredField;
++import org.apache.lucene.document.TextField;
+ import org.eclipse.help.search.ISearchDocument;
+ 
+ /**
+@@ -32,25 +35,25 @@
+ 
+ 	@Override
+ 	public void setTitle(String title) {
+-		doc.add(new Field("title", title, Field.Store.NO, Field.Index.ANALYZED)); //$NON-NLS-1$
+-		doc.add(new Field("exact_title", title, Field.Store.NO, Field.Index.ANALYZED)); //$NON-NLS-1$
+-		doc.add(new Field("raw_title", title, Field.Store.YES, Field.Index.NO)); //$NON-NLS-1$
++		doc.add(new TextField("title", title, Field.Store.NO)); //$NON-NLS-1$
++		doc.add(new TextField("exact_title", title, Field.Store.NO)); //$NON-NLS-1$
++		doc.add(new StoredField("raw_title", title)); //$NON-NLS-1$
+ 	}
+ 
+ 	@Override
+ 	public void setSummary(String summary) {
+-	  	doc.add(new Field("summary", summary, Field.Store.YES, Field.Index.NO)); //$NON-NLS-1$
++	  	doc.add(new StoredField("summary", summary)); //$NON-NLS-1$
+ 	}
+ 
+ 	@Override
+ 	public void addContents(String contents) {
+-		doc.add(new Field("contents", new StringReader(contents))); //$NON-NLS-1$
+-		doc.add(new Field("exact_contents", new StringReader(contents))); //$NON-NLS-1$
++		doc.add(new TextField("contents", new StringReader(contents))); //$NON-NLS-1$
++		doc.add(new TextField("exact_contents", new StringReader(contents))); //$NON-NLS-1$
+ 	}
+ 
+ 	@Override
+ 	public void setHasFilters(boolean hasFilters) {
+-		doc.add(new Field("filters", Boolean.toString(hasFilters), Field.Store.YES, Field.Index.NO)); //$NON-NLS-1$
++		doc.add(new StoredField("filters", Boolean.toString(hasFilters))); //$NON-NLS-1$
+ 	}
+ 
+ 	public Document getDocument() {
+@@ -59,8 +62,8 @@
+ 
+ 	@Override
+ 	public void addContents(Reader contents, Reader exactContents) {
+-		doc.add(new Field("contents", contents)); //$NON-NLS-1$
+-		doc.add(new Field("exact_contents", exactContents)); //$NON-NLS-1$
++		doc.add(new TextField("contents", contents)); //$NON-NLS-1$
++		doc.add(new TextField("exact_contents", exactContents)); //$NON-NLS-1$
+ 	}
+ 
+ }
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/PluginIndex.java b/org.eclipse.help.base/src/org/eclipse/help/internal/search/PluginIndex.java
+index ca9cd67..7952c8d 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/PluginIndex.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/PluginIndex.java
+@@ -7,6 +7,7 @@
+  *
+  * Contributors:
+  *     IBM Corporation - initial API and implementation
++ *     Sopot Cela - Bug 466829 - Migration to Lucene 5
+  *******************************************************************************/
+ package org.eclipse.help.internal.search;
+ 
+@@ -150,6 +151,7 @@
+ 					.getProperty(SearchIndex.DEPENDENCIES_KEY_ANALYZER);
+ 			if (!targetIndex.isLuceneCompatible(lucene)
+ 					|| !targetIndex.isAnalyzerCompatible(analyzer)) {
++				HelpBasePlugin.logError("Error trying to consume Lucene index from bundle "+bundle.toString()+". Please use an index built with Lucene 5 or higher.", null); //$NON-NLS-1$ //$NON-NLS-2$
+ 				return false;
+ 			}
+ 		} catch (MalformedURLException mue) {
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryBuilder.java b/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryBuilder.java
+deleted file mode 100644
+index 08cf58a..0000000
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryBuilder.java
++++ /dev/null
+@@ -1,455 +0,0 @@
+-/*******************************************************************************
+- * Copyright (c) 2000, 2016 IBM Corporation and others.
+- * All rights reserved. This program and the accompanying materials
+- * are made available under the terms of the Eclipse Public License v1.0
+- * which accompanies this distribution, and is available at
+- * http://www.eclipse.org/legal/epl-v10.html
+- *
+- * Contributors:
+- *     IBM Corporation - initial API and implementation
+- *     Chris Torrence  - patch for bug Bug 107648
+- *******************************************************************************/
+-package org.eclipse.help.internal.search;
+-import java.io.*;
+-import java.util.ArrayList;
+-import java.util.Collection;
+-import java.util.Iterator;
+-import java.util.List;
+-import java.util.Locale;
+-import java.util.StringTokenizer;
+-
+-import org.apache.lucene.analysis.*;
+-import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+-import org.apache.lucene.index.*;
+-import org.apache.lucene.search.*;
+-import org.eclipse.help.internal.base.*;
+-/**
+- * Build query acceptable by the search engine.
+- */
+-public class QueryBuilder {
+-	// Maximum allowed number of terms
+-	private static final int MAX_TERMS = 10;
+-	// Maximum allowed number of ORs
+-	private static final int MAX_UNIONS = 4;
+-	// Maximum allowed number terms with wild cards
+-	private static final int MAX_WILD_TERMS = 2;
+-	// Query from user
+-	private String searchWords;
+-	// Descriptor of Analyzer to process the query words
+-	private AnalyzerDescriptor analyzerDesc;
+-	// Analyzer to process the query words
+-	private Analyzer analyzer;
+-	// List of QueryWordsToken
+-	private List<QueryWordsToken> analyzedTokens;
+-	// List of words to highlight
+-	private List<String> highlightWords = new ArrayList<>();
+-	private Locale locale;
+-	/**
+-	 * Creates a query builder for the search word. The search word is processed
+-	 * by a lexical analyzer.
+-	 */
+-	public QueryBuilder(String searchWords, AnalyzerDescriptor analyzerDesc) {
+-		this.searchWords = searchWords;
+-		String language = analyzerDesc.getLang();
+-		if (language.length() >= 5) {
+-			this.locale = new Locale(language.substring(0, 2), language
+-					.substring(3, 5));
+-		} else {
+-			this.locale = new Locale(language.substring(0, 2), ""); //$NON-NLS-1$
+-		}
+-		this.analyzerDesc = analyzerDesc;
+-		this.analyzer = analyzerDesc.getAnalyzer();
+-	}
+-	/**
+-	 * Splits user query into tokens and returns a list of QueryWordsToken's.
+-	 */
+-	private List<QueryWordsToken> tokenizeUserQuery(String searchWords) {
+-		List<QueryWordsToken> tokenList = new ArrayList<>();
+-		//Divide along quotation marks
+-		//StringTokenizer qTokenizer = new StringTokenizer(searchWords.trim(),
+-		//		"\"", true); //$NON-NLS-1$
+-		boolean withinQuotation = false;
+-		String quotedString = ""; //$NON-NLS-1$
+-		int termCount = 0;// keep track of number of terms to disallow too many
+-
+-		int fromIndex = -1;
+-		searchWords = searchWords.trim();
+-		while((fromIndex = searchWords.indexOf("\"", fromIndex+1))!= -1){ //$NON-NLS-1$
+-			withinQuotation = !withinQuotation;
+-		}
+-		if( withinQuotation ) {
+-			searchWords = searchWords + "\""; //$NON-NLS-1$
+-			withinQuotation = !withinQuotation;
+-		}
+-
+-		StringTokenizer qTokenizer = new StringTokenizer(searchWords,"\"",true); //$NON-NLS-1$
+-		int orCount = 0; // keep track of number of ORs to disallow too many
+-		while (qTokenizer.hasMoreTokens()) {
+-			String curToken = qTokenizer.nextToken();
+-			if (curToken.equals("\"")) { //$NON-NLS-1$
+-				if (withinQuotation) {
+-					// check for too many terms
+-					if (BaseHelpSystem.getMode() == BaseHelpSystem.MODE_INFOCENTER
+-							&& ++termCount > MAX_TERMS) {
+-						throw new QueryTooComplexException();
+-					}
+-					tokenList.add(QueryWordsToken.exactPhrase(quotedString));
+-				} else {
+-					quotedString = ""; //$NON-NLS-1$
+-				}
+-				withinQuotation = !withinQuotation;
+-				continue;
+-			} else if (withinQuotation) {
+-				quotedString = curToken;
+-				continue;
+-			} else {
+-				//divide unquoted strings along white space
+-				StringTokenizer parser = new StringTokenizer(curToken.trim());
+-				while (parser.hasMoreTokens()) {
+-					String token = parser.nextToken();
+-					if (token.equalsIgnoreCase(QueryWordsToken.AND().value)) {
+-						tokenList.add(QueryWordsToken.AND());
+-					} else if (token
+-							.equalsIgnoreCase(QueryWordsToken.OR().value)) {
+-						// Check for too many OR terms
+-						if (BaseHelpSystem.getMode() == BaseHelpSystem.MODE_INFOCENTER
+-								&& ++orCount > MAX_UNIONS) {
+-							throw new QueryTooComplexException();
+-						}
+-						tokenList.add(QueryWordsToken.OR());
+-					} else if (token
+-							.equalsIgnoreCase(QueryWordsToken.NOT().value)) {
+-						tokenList.add(QueryWordsToken.NOT());
+-					} else {
+-						// check for too many terms
+-						if (BaseHelpSystem.getMode() == BaseHelpSystem.MODE_INFOCENTER
+-								&& ++termCount > MAX_TERMS) {
+-							throw new QueryTooComplexException();
+-						}
+-						tokenList.add(QueryWordsToken.word(token));
+-					}
+-				}
+-			}
+-		}
+-		return tokenList;
+-	}
+-	/**
+-	 * Apply the Analyzer to the search tokens and return the list of processed
+-	 * QueryWordsToken's.
+-	 */
+-	private List<QueryWordsToken> analyzeTokens(List<QueryWordsToken> tokens) {
+-		boolean isTokenAfterNot = false;
+-		List<QueryWordsToken> newTokens = new ArrayList<>();
+-		int wildCardTermCount = 0;
+-		for (int i = 0; i < tokens.size(); i++) {
+-			QueryWordsToken token = tokens.get(i);
+-			if (token.type == QueryWordsToken.WORD) {
+-				int questionMIndex = token.value.indexOf('?');
+-				int starIndex = token.value.indexOf('*');
+-				if (starIndex >= 0 || questionMIndex >= 0) {
+-					if (BaseHelpSystem.getMode() == BaseHelpSystem.MODE_INFOCENTER
+-							&& ++wildCardTermCount > MAX_WILD_TERMS) {
+-						throw new QueryTooComplexException();
+-					}
+-					newTokens.add(QueryWordsToken.word(token.value
+-							.toLowerCase(locale)));
+-					// add word to the list of words to highlight
+-					if (!isTokenAfterNot && !highlightWords.contains(token.value)) {
+-						highlightWords.add(token.value);
+-					}
+-				} else {
+-					List<String> wordList = analyzeText(analyzer, "contents", //$NON-NLS-1$
+-							token.value);
+-					if (wordList.size() > 0) {
+-						if (!isTokenAfterNot && !highlightWords.contains(token.value)) {
+-							// add original word to the list of words to
+-							// highlight
+-							highlightWords.add(token.value);
+-						}
+-						if (wordList.size() == 1) {
+-							String word = wordList.get(0);
+-							newTokens.add(QueryWordsToken.word(word));
+-							// add analyzed word to the list of words to
+-							// highlight
+-							// this is required to highlight stemmed words
+-							if (!isTokenAfterNot && !highlightWords.contains(word)) {
+-								highlightWords.add(word);
+-							}
+-						} else {
+-							QueryWordsPhrase phrase = QueryWordsToken.phrase();
+-							for (Iterator<String> it = wordList.iterator(); it
+-									.hasNext();) {
+-								String word = it.next();
+-								phrase.addWord(word);
+-								// add each analyzed word to the list of words
+-								// to highlight
+-								// this is only required to highlight stemmed
+-								// words.
+-								// Adding words should not be done when
+-								// DefaultAnalyzer is used,
+-								// because it does not perform stemming and
+-								// common words removal
+-								// which would result in common characters
+-								// highlighted all over (bug 30263)
+-								if (!analyzerDesc.getId().startsWith(
+-										HelpBasePlugin.PLUGIN_ID + "#")) { //$NON-NLS-1$
+-									if (!isTokenAfterNot && !highlightWords.contains(word)) {
+-										highlightWords.add(word);
+-									}
+-								}
+-							}
+-							newTokens.add(phrase);
+-						}
+-					}
+-				}
+-			} else if (// forget ANDs
+-			/*
+-			 * token.type == SearchQueryToken.AND ||
+-			 */
+-			token.type == QueryWordsToken.OR
+-					|| token.type == QueryWordsToken.NOT)
+-				newTokens.add(token);
+-			else if (token.type == QueryWordsToken.EXACT_PHRASE) {
+-				List<String> wordList = analyzeText(analyzer, "exact_contents", //$NON-NLS-1$
+-						token.value);
+-				if (wordList.size() > 0) {
+-					if (!isTokenAfterNot && !highlightWords.contains(token.value)) {
+-						// add original word to the list of words to highlight
+-						highlightWords.add(token.value);
+-					}
+-				}
+-				QueryWordsExactPhrase phrase = QueryWordsToken.exactPhrase();
+-				for (Iterator<String> it = wordList.iterator(); it.hasNext();) {
+-					String word = it.next();
+-					phrase.addWord(word);
+-					// add analyzed word to the list of words to highlight
+-					// if (!highlightWords.contains(word))
+-					//	highlightWords.add(word);
+-				}
+-				// add phrase only if not empty
+-				if (phrase.getWords().size() > 0) {
+-					newTokens.add(phrase);
+-				}
+-			}
+-			isTokenAfterNot = (token.type == QueryWordsToken.NOT);
+-		}
+-		return newTokens;
+-	}
+-	/**
+-	 * Get a list of tokens corresponding to a search word or phrase
+-	 *
+-	 * @return List of String
+-	 */
+-	private List<String> analyzeText(Analyzer analyzer, String fieldName, String text) {
+-		List<String> words = new ArrayList<>(1);
+-		try (Reader reader = new StringReader(text); TokenStream tStream = analyzer.tokenStream(fieldName, reader)) {
+-			CharTermAttribute termAttribute = tStream.getAttribute(CharTermAttribute.class);
+-			while (tStream.incrementToken()) {
+-				String term = termAttribute.toString();
+-				words.add(term);
+-			}
+-		} catch (IOException ioe) {
+-		}
+-
+-		return words;
+-	}
+-	/**
+-	 * Obtains Lucene Query from tokens
+-	 *
+-	 * @return Query or null if no query could be created
+-	 */
+-	private Query createLuceneQuery(List<QueryWordsToken> searchTokens, String[] fieldNames,
+-			float[] boosts) {
+-		// Get queries for parts separated by OR
+-		List<Query> requiredQueries = getRequiredQueries(searchTokens, fieldNames,
+-				boosts);
+-		if (requiredQueries.size() == 0)
+-			return null;
+-		else if (requiredQueries.size() <= 1)
+-			return requiredQueries.get(0);
+-		else
+-			/* if (requiredQueries.size() > 1) */
+-			// OR queries
+-			return (orQueries(requiredQueries));
+-	}
+-	/**
+-	 * Obtains Lucene queries for token sequences separated at OR.
+-	 *
+-	 * @return List of Query (could be empty)
+-	 */
+-	private List<Query> getRequiredQueries(List<QueryWordsToken> tokens, String[] fieldNames,
+-			float[] boosts) {
+-		List<Query> oredQueries = new ArrayList<>();
+-		ArrayList<QueryWordsToken> requiredQueryTokens = new ArrayList<>();
+-		for (int i = 0; i < tokens.size(); i++) {
+-			QueryWordsToken token = tokens.get(i);
+-			if (token.type != QueryWordsToken.OR) {
+-				requiredQueryTokens.add(token);
+-			} else {
+-				Query reqQuery = getRequiredQuery(requiredQueryTokens,
+-						fieldNames, boosts);
+-				if (reqQuery != null)
+-					oredQueries.add(reqQuery);
+-				requiredQueryTokens = new ArrayList<>();
+-			}
+-		}
+-		Query reqQuery = getRequiredQuery(requiredQueryTokens, fieldNames,
+-				boosts);
+-		if (reqQuery != null)
+-			oredQueries.add(reqQuery);
+-		return oredQueries;
+-	}
+-	private Query orQueries(Collection<Query> queries) {
+-		BooleanQuery bq = new BooleanQuery();
+-		for (Iterator<Query> it = queries.iterator(); it.hasNext();) {
+-			Query q = it.next();
+-			bq.add(q, BooleanClause.Occur.SHOULD);
+-		}
+-		return bq;
+-	}
+-	/**
+-	 * Obtains Lucene Query for tokens containing only AND and NOT operators.
+-	 *
+-	 * @return BooleanQuery or null if no query could be created from the tokens
+-	 */
+-	private Query getRequiredQuery(List<QueryWordsToken> requiredTokens, String[] fieldNames,
+-			float[] boosts) {
+-		BooleanQuery retQuery = new BooleanQuery();
+-		boolean requiredTermExist = false;
+-		// Parse tokens left to right
+-		QueryWordsToken operator = null;
+-		for (int i = 0; i < requiredTokens.size(); i++) {
+-			QueryWordsToken token = requiredTokens.get(i);
+-			if (token.type == QueryWordsToken.AND
+-					|| token.type == QueryWordsToken.NOT) {
+-				operator = token;
+-				continue;
+-			}
+-			// Creates queries for all fields
+-			Query qs[] = new Query[fieldNames.length];
+-			for (int f = 0; f < fieldNames.length; f++) {
+-				qs[f] = token.createLuceneQuery(fieldNames[f], boosts[f]);
+-			}
+-			// creates the boolean query of all fields
+-			Query q = qs[0];
+-			if (fieldNames.length > 1) {
+-				BooleanQuery allFieldsQuery = new BooleanQuery();
+-				for (int f = 0; f < fieldNames.length; f++)
+-					allFieldsQuery.add(qs[f], BooleanClause.Occur.SHOULD);
+-				q = allFieldsQuery;
+-			}
+-			if (operator != null && operator.type == QueryWordsToken.NOT) {
+-				retQuery.add(q, BooleanClause.Occur.MUST_NOT); // add as prohibited
+-			} else {
+-				retQuery.add(q, BooleanClause.Occur.MUST); // add as required
+-				requiredTermExist = true;
+-			}
+-		}
+-		if (!requiredTermExist) {
+-			return null; // cannot search for prohibited only
+-		}
+-		return retQuery;
+-	}
+-	private Query getLuceneQuery(String[] fieldNames, float[] boosts) {
+-		Query luceneQuery = createLuceneQuery(analyzedTokens, fieldNames,
+-				boosts);
+-		return luceneQuery;
+-	}
+-	/**
+-	 * @param fieldNames -
+-	 *            Collection of field names of type String (e.g. "h1"); the
+-	 *            search will be performed on the given fields
+-	 * @param fieldSearchOnly -
+-	 *            boolean indicating if field only search should be performed;
+-	 *            if set to false, default field "contents" and all other fields
+-	 *            will be searched
+-	 */
+-	public Query getLuceneQuery(Collection<String> fieldNames, boolean fieldSearchOnly)
+-			throws QueryTooComplexException {
+-		// split search query into tokens
+-		List<QueryWordsToken> userTokens = tokenizeUserQuery(searchWords);
+-		analyzedTokens = analyzeTokens(userTokens);
+-		return buildLuceneQuery(fieldNames, fieldSearchOnly);
+-	}
+-	/**
+-	 * @param fieldNames -
+-	 *            Collection of field names of type String (e.g. "h1"); the
+-	 *            search will be performed on the given fields
+-	 * @param fieldSearchOnly -
+-	 *            boolean indicating if field only search should be performed;
+-	 *            if set to false, default field "contents" and all other fields
+-	 *            will be searched
+-	 */
+-	private Query buildLuceneQuery(Collection<String> fieldNames,
+-			boolean fieldSearchOnly) {
+-		String[] fields;
+-		float[] boosts;
+-		if (fieldSearchOnly) {
+-			fields = new String[fieldNames.size()];
+-			boosts = new float[fieldNames.size()];
+-			Iterator<String> fieldNamesIt = fieldNames.iterator();
+-			for (int i = 0; i < fieldNames.size(); i++) {
+-				fields[i] = fieldNamesIt.next();
+-				boosts[i] = 5.0f;
+-			}
+-		} else {
+-			fields = new String[fieldNames.size() + 2];
+-	        boosts = new float[fieldNames.size() + 2];
+-			Iterator<String> fieldNamesIt = fieldNames.iterator();
+-			for (int i = 0; i < fieldNames.size(); i++) {
+-				fields[i] = fieldNamesIt.next();
+-				boosts[i] = 5.0f;
+-			}
+-			fields[fieldNames.size()] = "contents"; //$NON-NLS-1$
+-			boosts[fieldNames.size()] = 1.0f;
+-            fields[fieldNames.size()+1] = "title"; //$NON-NLS-1$
+-	        boosts[fieldNames.size()+1] = 1.0f;
+-		}
+-		Query query = getLuceneQuery(fields, boosts);
+-		query = improveRankingForUnqotedPhrase(query, fields, boosts);
+-		return query;
+-	}
+-	/**
+-	 * If user query contained only words (no quotaions nor operators) extends
+-	 * query with term phrase representing entire user query i.e for user string
+-	 * a b, the query a AND b will be extended to "a b" OR a AND b
+-	 */
+-	private Query improveRankingForUnqotedPhrase(Query query, String[] fields,
+-			float[] boosts) {
+-		if (query == null)
+-			return query;
+-		// check if all tokens are words
+-		for (int i = 0; i < analyzedTokens.size(); i++)
+-			if (analyzedTokens.get(i).type != QueryWordsToken.WORD)
+-				return query;
+-		// Create phrase query for all tokens and OR with original query
+-		BooleanQuery booleanQuery = new BooleanQuery();
+-		booleanQuery.add(query, BooleanClause.Occur.SHOULD);
+-		PhraseQuery[] phraseQueries = new PhraseQuery[fields.length];
+-		for (int f = 0; f < fields.length; f++) {
+-			phraseQueries[f] = new PhraseQuery();
+-			for (int i = 0; i < analyzedTokens.size(); i++) {
+-				Term t = new Term(fields[f], analyzedTokens
+-						.get(i).value);
+-				phraseQueries[f].add(t);
+-			}
+-			phraseQueries[f].setBoost(10 * boosts[f]);
+-			booleanQuery.add(phraseQueries[f], BooleanClause.Occur.SHOULD);
+-		}
+-		return booleanQuery;
+-	}
+-	/**
+-	 * Obtains analyzed terms from query as one string. Words are double quoted,
+-	 * and separated by space. The analyzed words are needed for highlighting
+-	 * word roots.
+-	 */
+-	public String gethighlightTerms() {
+-		StringBuffer buf = new StringBuffer();
+-		for (Iterator<String> it = highlightWords.iterator(); it.hasNext();) {
+-			buf.append('"');
+-			buf.append(it.next());
+-			buf.append("\" "); //$NON-NLS-1$
+-		}
+-		return buf.toString();
+-	}
+-}
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryWordsExactPhrase.java b/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryWordsExactPhrase.java
+deleted file mode 100644
+index 324b8e1..0000000
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryWordsExactPhrase.java
++++ /dev/null
+@@ -1,51 +0,0 @@
+-/*******************************************************************************
+- * Copyright (c) 2000, 2015 IBM Corporation and others.
+- * All rights reserved. This program and the accompanying materials
+- * are made available under the terms of the Eclipse Public License v1.0
+- * which accompanies this distribution, and is available at
+- * http://www.eclipse.org/legal/epl-v10.html
+- *
+- * Contributors:
+- *     IBM Corporation - initial API and implementation
+- *******************************************************************************/
+-package org.eclipse.help.internal.search;
+-import java.util.ArrayList;
+-import java.util.Iterator;
+-import java.util.List;
+-
+-import org.apache.lucene.index.*;
+-import org.apache.lucene.search.*;
+-/**
+- * Represents a quoted token in user search query words
+- */
+-public class QueryWordsExactPhrase extends QueryWordsToken {
+-	private List<String> words;
+-	public QueryWordsExactPhrase() {
+-		super(QueryWordsToken.EXACT_PHRASE, ""); //$NON-NLS-1$
+-		words = new ArrayList<>();
+-	}
+-	public void addWord(String word) {
+-		words.add(word);
+-		if (words.size() <= 1)
+-			value = word;
+-		else
+-			value += " " + word; //$NON-NLS-1$
+-	}
+-	public List<String> getWords() {
+-		return words;
+-	}
+-	/**
+-	 * Creates a lucene query for a field
+-	 */
+-	@Override
+-	public Query createLuceneQuery(String field, float boost) {
+-		PhraseQuery q = new PhraseQuery();
+-		for (Iterator<String> it = getWords().iterator(); it.hasNext();) {
+-			String word = it.next();
+-			Term t = new Term("exact_" + field, word); //$NON-NLS-1$
+-			q.add(t);
+-			q.setBoost(boost);
+-		}
+-		return q;
+-	}
+-}
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryWordsPhrase.java b/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryWordsPhrase.java
+deleted file mode 100644
+index 8a94e89..0000000
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryWordsPhrase.java
++++ /dev/null
+@@ -1,52 +0,0 @@
+-/*******************************************************************************
+- * Copyright (c) 2000, 2015 IBM Corporation and others.
+- * All rights reserved. This program and the accompanying materials
+- * are made available under the terms of the Eclipse Public License v1.0
+- * which accompanies this distribution, and is available at
+- * http://www.eclipse.org/legal/epl-v10.html
+- *
+- * Contributors:
+- *     IBM Corporation - initial API and implementation
+- *******************************************************************************/
+-package org.eclipse.help.internal.search;
+-import java.util.ArrayList;
+-import java.util.Iterator;
+-import java.util.List;
+-
+-import org.apache.lucene.index.*;
+-import org.apache.lucene.search.*;
+-/**
+- * Represents a phrase (not quoted) token in user search query words It consists
+- * of several words created by an analyzer
+- */
+-public class QueryWordsPhrase extends QueryWordsToken {
+-	private List<String> words;
+-	public QueryWordsPhrase() {
+-		super(QueryWordsToken.PHRASE, ""); //$NON-NLS-1$
+-		words = new ArrayList<>();
+-	}
+-	public void addWord(String word) {
+-		words.add(word);
+-		if (words.size() <= 1)
+-			value = word;
+-		else
+-			value += " " + word; //$NON-NLS-1$
+-	}
+-	public List<String> getWords() {
+-		return words;
+-	}
+-	/**
+-	 * Creates a lucene query for a field
+-	 */
+-	@Override
+-	public Query createLuceneQuery(String field, float boost) {
+-		PhraseQuery q = new PhraseQuery();
+-		for (Iterator<String> it = getWords().iterator(); it.hasNext();) {
+-			String word = it.next();
+-			Term t = new Term(field, word);
+-			q.add(t);
+-			q.setBoost(boost);
+-		}
+-		return q;
+-	}
+-}
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryWordsToken.java b/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryWordsToken.java
+deleted file mode 100644
+index 6ba76f2..0000000
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/QueryWordsToken.java
++++ /dev/null
+@@ -1,81 +0,0 @@
+-/*******************************************************************************
+- * Copyright (c) 2000, 2007 IBM Corporation and others.
+- * All rights reserved. This program and the accompanying materials
+- * are made available under the terms of the Eclipse Public License v1.0
+- * which accompanies this distribution, and is available at
+- * http://www.eclipse.org/legal/epl-v10.html
+- *
+- * Contributors:
+- *     IBM Corporation - initial API and implementation
+- *******************************************************************************/
+-package org.eclipse.help.internal.search;
+-import org.apache.lucene.index.*;
+-import org.apache.lucene.search.*;
+-/**
+- * Represents a token in user search query words
+- */
+-public class QueryWordsToken {
+-	public static final int AND = 0;
+-	public static final int OR = 1;
+-	public static final int NOT = 2;
+-	public static final int EXACT_PHRASE = 3;
+-	public static final int PHRASE = 4;
+-	public static final int WORD = 5;
+-	private static final QueryWordsToken fAND = new QueryWordsToken(AND, "AND"); //$NON-NLS-1$
+-	private static final QueryWordsToken fOR = new QueryWordsToken(OR, "OR"); //$NON-NLS-1$
+-	private static final QueryWordsToken fNOT = new QueryWordsToken(NOT, "NOT"); //$NON-NLS-1$
+-	public int type;
+-	public String value;
+-	protected QueryWordsToken(int type, String value) {
+-		this.type = type;
+-		this.value = value;
+-	}
+-	/**
+-	 * Creates a lucene query for a field
+-	 */
+-	public Query createLuceneQuery(String field, float boost) {
+-		Query q;
+-		int questionPos = value.indexOf('?');
+-		int starPos = value.indexOf('*');
+-		if (questionPos >= 0 || starPos >= 0) {
+-			if (questionPos == -1 && starPos == value.length() - 1) {
+-				Term t = new Term("exact_" + field, value.substring(0, starPos)); //$NON-NLS-1$
+-				q = new PrefixQuery(t);
+-				((PrefixQuery) q).setBoost(boost);
+-			} else {
+-				Term t = new Term("exact_" + field, value); //$NON-NLS-1$
+-				q = new WildcardQuery(t);
+-				((WildcardQuery) q).setBoost(boost);
+-			}
+-		} else {
+-			Term t = new Term(field, value);
+-			q = new TermQuery(t);
+-			((TermQuery) q).setBoost(boost);
+-		}
+-		// after updating Lucene, set boost on a Query class
+-		return q;
+-	}
+-	public static QueryWordsToken AND() {
+-		return fAND;
+-	}
+-	public static QueryWordsToken OR() {
+-		return fOR;
+-	}
+-	public static QueryWordsToken NOT() {
+-		return fNOT;
+-	}
+-	public static QueryWordsToken word(String word) {
+-		return new QueryWordsToken(QueryWordsToken.WORD, word);
+-	}
+-	public static QueryWordsPhrase phrase() {
+-		return new QueryWordsPhrase();
+-	}
+-	public static QueryWordsExactPhrase exactPhrase() {
+-		return new QueryWordsExactPhrase();
+-	}
+-	public static QueryWordsExactPhrase exactPhrase(String word) {
+-		QueryWordsExactPhrase token = new QueryWordsExactPhrase();
+-		token.addWord(word);
+-		return token;
+-	}
+-}
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/SearchIndex.java b/org.eclipse.help.base/src/org/eclipse/help/internal/search/SearchIndex.java
+index 67963a5..131ac65 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/SearchIndex.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/SearchIndex.java
+@@ -17,6 +16,7 @@
+ import java.io.IOException;
+ import java.io.InputStream;
+ import java.io.RandomAccessFile;
++import java.io.StringReader;
+ import java.net.MalformedURLException;
+ import java.net.URL;
+ import java.nio.channels.FileLock;
+@@ -33,19 +33,30 @@
+ import java.util.zip.ZipEntry;
+ import java.util.zip.ZipInputStream;
+ 
+-import org.apache.lucene.analysis.LimitTokenCountAnalyzer;
++import org.apache.lucene.analysis.miscellaneous.LimitTokenCountAnalyzer;
+ import org.apache.lucene.document.Document;
+ import org.apache.lucene.document.Field;
++import org.apache.lucene.document.StoredField;
++import org.apache.lucene.document.StringField;
++import org.apache.lucene.index.DirectoryReader;
+ import org.apache.lucene.index.IndexReader;
+ import org.apache.lucene.index.IndexWriter;
+-import org.apache.lucene.index.Term;
+-import org.apache.lucene.index.TermDocs;
+-import org.apache.lucene.index.IndexWriterConfig.OpenMode;
+ import org.apache.lucene.index.IndexWriterConfig;
++import org.apache.lucene.index.IndexWriterConfig.OpenMode;
++import org.apache.lucene.index.LeafReader;
+ import org.apache.lucene.index.LogByteSizeMergePolicy;
+ import org.apache.lucene.index.LogMergePolicy;
++import org.apache.lucene.index.PostingsEnum;
++import org.apache.lucene.index.SlowCompositeReaderWrapper;
++import org.apache.lucene.index.Term;
++import org.apache.lucene.queryparser.classic.FastCharStream;
++import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
++import org.apache.lucene.queryparser.classic.QueryParserTokenManager;
++import org.apache.lucene.queryparser.classic.Token;
++import org.apache.lucene.search.BooleanClause.Occur;
+ import org.apache.lucene.search.BooleanQuery;
+ import org.apache.lucene.search.IndexSearcher;
++import org.apache.lucene.search.MultiTermQuery;
+ import org.apache.lucene.search.Query;
+ import org.apache.lucene.search.TopDocs;
+ import org.apache.lucene.store.Directory;
+@@ -59,7 +70,6 @@
+ import org.eclipse.core.runtime.OperationCanceledException;
+ import org.eclipse.core.runtime.Platform;
+ import org.eclipse.core.runtime.Status;
+-import org.eclipse.help.internal.HelpPlugin;
+ import org.eclipse.help.internal.base.BaseHelpSystem;
+ import org.eclipse.help.internal.base.HelpBasePlugin;
+ import org.eclipse.help.internal.base.util.HelpProperties;
+@@ -86,7 +96,7 @@
+ 
+ 	private File indexDir;
+ 
+-	private Directory luceneDirectory;
++	public Directory luceneDirectory;
+ 
+ 	private String locale;
+ 
+@@ -170,7 +180,7 @@
+ 		inconsistencyFile = new File(indexDir.getParentFile(), locale + ".inconsistent"); //$NON-NLS-1$
+ 		htmlSearchParticipant = new HTMLSearchParticipant(indexDir.getAbsolutePath());
+ 		try {
+-			luceneDirectory = new NIOFSDirectory(indexDir);
++			luceneDirectory = new NIOFSDirectory(indexDir.toPath());
+ 		} catch (IOException e) {
+ 		}
+ 		if (!exists()) {
+@@ -203,11 +213,11 @@
+ 	public IStatus addDocument(String name, URL url) {
+ 		try {
+ 			Document doc = new Document();
+-			doc.add(new Field(FIELD_NAME, name, Field.Store.YES, Field.Index.NOT_ANALYZED));
++			doc.add(new StringField(FIELD_NAME, name, Field.Store.YES));
+ 			addExtraFields(doc);
+ 			String pluginId = LocalSearchManager.getPluginId(name);
+ 			if (relativePath != null) {
+-				doc.add(new Field(FIELD_INDEX_ID, relativePath, Field.Store.YES, Field.Index.NOT_ANALYZED));
++				doc.add(new StringField(FIELD_INDEX_ID, relativePath, Field.Store.YES));
+ 			}
+ 			// check for the explicit search participant.
+ 			SearchParticipant participant = null;
+@@ -220,20 +230,22 @@
+ 			if (participant == null)
+ 				participant = BaseHelpSystem.getLocalSearchManager().getParticipant(pluginId, name);
+ 			if (participant != null) {
+-				IStatus status = participant.addDocument(this, pluginId, name, url, id, new LuceneSearchDocument(doc));
++				IStatus status = participant.addDocument(this, pluginId, name, url, id,
++						new LuceneSearchDocument(doc));
+ 				if (status.getSeverity() == IStatus.OK) {
+ 					String filters = doc.get("filters"); //$NON-NLS-1$
+ 					indexedDocs.put(name, filters != null ? filters : "0"); //$NON-NLS-1$
+ 					if (id != null)
+-						doc.add(new Field("id", id, Field.Store.YES, Field.Index.NO)); //$NON-NLS-1$
++						doc.add(new StoredField("id", id)); //$NON-NLS-1$
+ 					if (pid != null)
+-						doc.add(new Field("participantId", pid, Field.Store.YES, Field.Index.NO)); //$NON-NLS-1$
++						doc.add(new StoredField("participantId", pid)); //$NON-NLS-1$
+ 					iw.addDocument(doc);
+ 				}
+ 				return status;
+ 			}
+ 			// default to html
+-			IStatus status = htmlSearchParticipant.addDocument(this, pluginId, name, url, id, new LuceneSearchDocument(doc));
++			IStatus status = htmlSearchParticipant.addDocument(this, pluginId, name, url, id,
++					new LuceneSearchDocument(doc));
+ 			if (status.getSeverity() == IStatus.OK) {
+ 				String filters = doc.get("filters"); //$NON-NLS-1$
+ 				indexedDocs.put(name, filters != null ? filters : "0"); //$NON-NLS-1$
+@@ -245,20 +257,21 @@
+ 					"IO exception occurred while adding document " + name //$NON-NLS-1$
+ 							+ " to index " + indexDir.getAbsolutePath() + ".", //$NON-NLS-1$ //$NON-NLS-2$
+ 					e);
+-		}
+-		catch (Exception e) {
++		} catch (Exception e) {
+ 			return new Status(IStatus.ERROR, HelpBasePlugin.PLUGIN_ID, IStatus.ERROR,
+ 					"An unexpected internal error occurred while adding document " //$NON-NLS-1$
+ 							+ name + " to index " + indexDir.getAbsolutePath() //$NON-NLS-1$
+-							+ ".", e); //$NON-NLS-1$
++							+ ".", //$NON-NLS-1$
++					e);
+ 		}
+ 	}
+ 
+ 	/**
+-	 * Add any extra fields that need to be added to this document. Subclasses
+-	 * should override to add more fields.
++	 * Add any extra fields that need to be added to this document. Subclasses should override to
++	 * add more fields.
+ 	 *
+-	 * @param doc the document to add fields to
++	 * @param doc
++	 *            the document to add fields to
+ 	 */
+ 	protected void addExtraFields(Document doc) {
+ 	}
+@@ -282,8 +295,9 @@
+ 			indexedDocs = new HelpProperties(INDEXED_DOCS_FILE, indexDir);
+ 			indexedDocs.restore();
+ 			setInconsistent(true);
+-			LimitTokenCountAnalyzer analyzer = new LimitTokenCountAnalyzer(analyzerDescriptor.getAnalyzer(), 1000000);
+-			IndexWriterConfig writerConfig = new IndexWriterConfig(org.apache.lucene.util.Version.LUCENE_31, analyzer);
++			LimitTokenCountAnalyzer analyzer = new LimitTokenCountAnalyzer(analyzerDescriptor.getAnalyzer(),
++					1000000);
++			IndexWriterConfig writerConfig = new IndexWriterConfig(analyzer);
+ 			writerConfig.setOpenMode(create ? OpenMode.CREATE : OpenMode.APPEND);
+ 			LogMergePolicy mergePolicy = new LogByteSizeMergePolicy();
+ 			mergePolicy.setMergeFactor(20);
+@@ -307,7 +321,7 @@
+ 			indexedDocs = new HelpProperties(INDEXED_DOCS_FILE, indexDir);
+ 			indexedDocs.restore();
+ 			setInconsistent(true);
+-			ir = IndexReader.open(luceneDirectory, false);
++			ir = DirectoryReader.open(luceneDirectory);
+ 			return true;
+ 		} catch (IOException e) {
+ 			HelpBasePlugin.logError("Exception occurred in search indexing at beginDeleteBatch.", e); //$NON-NLS-1$
+@@ -323,7 +337,7 @@
+ 			if (ir != null) {
+ 				ir.close();
+ 			}
+-			ir = IndexReader.open(luceneDirectory, false);
++			ir = DirectoryReader.open(luceneDirectory);
+ 			return true;
+ 		} catch (IOException e) {
+ 			HelpBasePlugin.logError("Exception occurred in search indexing at beginDeleteBatch.", e); //$NON-NLS-1$
+@@ -334,14 +348,14 @@
+ 	/**
+ 	 * Deletes a single document from the index.
+ 	 *
+-	 * @param name -
+-	 *            document name
++	 * @param name
++	 *            - document name
+ 	 * @return IStatus
+ 	 */
+ 	public IStatus removeDocument(String name) {
+ 		Term term = new Term(FIELD_NAME, name);
+ 		try {
+-			ir.deleteDocuments(term);
++			iw.deleteDocuments(term);
+ 			indexedDocs.remove(name);
+ 		} catch (IOException e) {
+ 			return new Status(IStatus.ERROR, HelpBasePlugin.PLUGIN_ID, IStatus.ERROR,
+@@ -375,11 +389,11 @@
+ 			}
+ 
+ 			/*
+-			 * The searcher's index reader has it's stuff in memory so it won't
+-			 * know about this change. Close it so that it gets reloaded next search.
++			 * The searcher's index reader has it's stuff in memory so it won't know about this
++			 * change. Close it so that it gets reloaded next search.
+ 			 */
+ 			if (searcher != null) {
+-				searcher.close();
++				searcher.getIndexReader().close();
+ 				searcher = null;
+ 			}
+ 			return true;
+@@ -407,11 +421,11 @@
+ 			saveDependencies();
+ 
+ 			/*
+-			 * The searcher's index reader has it's stuff in memory so it won't
+-			 * know about this change. Close it so that it gets reloaded next search.
++			 * The searcher's index reader has it's stuff in memory so it won't know about this
++			 * change. Close it so that it gets reloaded next search.
+ 			 */
+ 			if (searcher != null) {
+-				searcher.close();
++				searcher.getIndexReader().close();
+ 				searcher = null;
+ 			}
+ 			return true;
+@@ -469,11 +483,11 @@
+ 				String indexId = indexIds.get(i);
+ 				String indexPath = indexPaths.get(i);
+ 				try {
+-					dirList.add(new NIOFSDirectory(new File(indexPath)));
++					dirList.add(new NIOFSDirectory(new File(indexPath).toPath()));
+ 				} catch (IOException ioe) {
+-					HelpBasePlugin
+-							.logError(
+-									"Help search indexing directory could not be created for directory " + indexPath, ioe); //$NON-NLS-1$
++					HelpBasePlugin.logError(
++							"Help search indexing directory could not be created for directory " + indexPath, //$NON-NLS-1$
++							ioe);
+ 					continue;
+ 				}
+ 
+@@ -525,18 +539,19 @@
+ 	}
+ 
+ 	public IStatus removeDuplicates(String name, String[] index_paths) {
+-		TermDocs hrefDocs = null;
+-		TermDocs indexDocs = null;
+-		Term hrefTerm = new Term(FIELD_NAME, name);
+ 		try {
++			LeafReader ar = SlowCompositeReaderWrapper.wrap(ir);
++			PostingsEnum hrefDocs = null;
++			PostingsEnum indexDocs = null;
++			Term hrefTerm = new Term(FIELD_NAME, name);
+ 			for (int i = 0; i < index_paths.length; i++) {
+ 				Term indexTerm = new Term(FIELD_INDEX_ID, index_paths[i]);
+ 				if (i == 0) {
+-					hrefDocs = ir.termDocs(hrefTerm);
+-					indexDocs = ir.termDocs(indexTerm);
++					hrefDocs = ar.postings(hrefTerm);
++					indexDocs = ar.postings(indexTerm);
+ 				} else {
+-					hrefDocs.seek(hrefTerm);
+-					indexDocs.seek(indexTerm);
++					hrefDocs = ar.postings(hrefTerm);
++					indexDocs = ar.postings(indexTerm);
+ 				}
+ 				removeDocuments(hrefDocs, indexDocs);
+ 			}
+@@ -545,19 +560,6 @@
+ 					"IO exception occurred while removing duplicates of document " + name //$NON-NLS-1$
+ 							+ " from index " + indexDir.getAbsolutePath() + ".", //$NON-NLS-1$ //$NON-NLS-2$
+ 					ioe);
+-		} finally {
+-			if (hrefDocs != null) {
+-				try {
+-					hrefDocs.close();
+-				} catch (IOException e) {
+-				}
+-			}
+-			if (indexDocs != null) {
+-				try {
+-					indexDocs.close();
+-				} catch (IOException e) {
+-				}
+-			}
+ 		}
+ 		return Status.OK_STATUS;
+ 	}
+@@ -569,33 +571,33 @@
+ 	 * @param docs2
+ 	 * @throws IOException
+ 	 */
+-	private void removeDocuments(TermDocs doc1, TermDocs docs2) throws IOException {
+-		if (!doc1.next()) {
++	private void removeDocuments(PostingsEnum doc1, PostingsEnum docs2) throws IOException {
++		if (doc1.nextDoc() == PostingsEnum.NO_MORE_DOCS) {
+ 			return;
+ 		}
+-		if (!docs2.next()) {
++		if (docs2.nextDoc() == PostingsEnum.NO_MORE_DOCS) {
+ 			return;
+ 		}
+ 		while (true) {
+-			if (doc1.doc() < docs2.doc()) {
+-				if (!doc1.skipTo(docs2.doc())) {
+-					if (!doc1.next()) {
++			if (doc1.docID() < docs2.docID()) {
++				if (doc1.advance(docs2.docID()) == PostingsEnum.NO_MORE_DOCS) {
++					if (doc1.nextDoc() == PostingsEnum.NO_MORE_DOCS) {
+ 						return;
+ 					}
+ 				}
+-			} else if (doc1.doc() > docs2.doc()) {
+-				if (!docs2.skipTo(doc1.doc())) {
+-					if (!doc1.next()) {
++			} else if (doc1.docID() > docs2.docID()) {
++				if (docs2.advance(doc1.docID()) == PostingsEnum.NO_MORE_DOCS) {
++					if (doc1.nextDoc() == PostingsEnum.NO_MORE_DOCS) {
+ 						return;
+ 					}
+ 				}
+ 			}
+-			if (doc1.doc() == docs2.doc()) {
+-				ir.deleteDocument(doc1.doc());
+-				if (!doc1.next()) {
++			if (doc1.docID() == docs2.docID()) {
++				iw.tryDeleteDocument(ir, doc1.docID());
++				if (doc1.nextDoc() == PostingsEnum.NO_MORE_DOCS) {
+ 					return;
+ 				}
+-				if (!docs2.next()) {
++				if (docs2.nextDoc() == PostingsEnum.NO_MORE_DOCS) {
+ 					return;
+ 				}
+ 			}
+@@ -623,20 +625,72 @@
+ 			registerSearch(Thread.currentThread());
+ 			if (closed)
+ 				return;
+-			QueryBuilder queryBuilder = new QueryBuilder(searchQuery.getSearchWord(), analyzerDescriptor);
+-			Query luceneQuery = queryBuilder.getLuceneQuery(searchQuery.getFieldNames(), searchQuery
+-					.isFieldSearch());
+-			if (HelpPlugin.DEBUG_SEARCH) {
+-				System.out.println("Search Query: " + luceneQuery.toString()); //$NON-NLS-1$
++
++			String[] fields;
++			if (searchQuery.isFieldSearch()){
++				//sometimes you might want to search other than the default fields
++				fields = (String[]) searchQuery.getFieldNames().toArray();
++			}else {
++				fields = new String[]{"contents","title"}; //$NON-NLS-1$ //$NON-NLS-2$
+ 			}
+-			String highlightTerms = queryBuilder.gethighlightTerms();
+-			if (luceneQuery != null) {
++
++			//prepare the parser
++
++			MultiFieldQueryParser qb = new MultiFieldQueryParser(fields,analyzerDescriptor.getAnalyzer());
++			qb.setAllowLeadingWildcard(true);
++			qb.setAnalyzeRangeTerms(true);
++			qb.setAutoGeneratePhraseQueries(true);
++			qb.setMultiTermRewriteMethod(MultiTermQuery.CONSTANT_SCORE_BOOLEAN_REWRITE);
++			qb.setLowercaseExpandedTerms(true);
++			qb.setLocale(new Locale(analyzerDescriptor.getLang()));
++
++			//parse the "pure" query (no boosting)
++			Query luceneQuery = qb.parse(searchQuery.getSearchWord());
++
++			//we'll merge the pure query with a some boosted queries
++			Query mergedQuery;
++
++			if (!isWildcardQuery(searchQuery.getSearchWord())){
++				mergedQuery = new BooleanQuery(); //merge for all fields before merging with luceneQuery
++				for (int i=0;i<fields.length;i++){
++					Query exactBoostQuery= qb.createPhraseQuery(fields[i], searchQuery.getSearchWord());
++					exactBoostQuery.setBoost(10.0f);
++					((BooleanQuery) mergedQuery).add(exactBoostQuery,Occur.SHOULD);
++				}
++				((BooleanQuery) mergedQuery).add(luceneQuery,Occur.SHOULD);
++
++			}else {
++				mergedQuery = luceneQuery;
++			}
++
++			Set<String> set = new HashSet<String>();
++
++			if (mergedQuery != null) {
+ 				if (searcher == null) {
+ 					openSearcher();
+ 				}
+-				TopDocs topDocs = searcher.search(luceneQuery, null, 1000);
+-				collector.addHits(LocalSearchManager.asList(topDocs, searcher), highlightTerms);
++				TopDocs topDocs = searcher.search(mergedQuery, 1000);
++
++				String highlight=null;
++				QueryParserTokenManager manager = new QueryParserTokenManager(new FastCharStream(new StringReader(searchQuery.getSearchWord())));
++				while (true){
++					Token nextToken = manager.getNextToken();
++					String toHighlight = null;
++					if (nextToken.kind==0) break;
++					String image = nextToken.image;
++					toHighlight=image;
++					if ((image.startsWith("\""))&&( image.endsWith("\""))){  //$NON-NLS-1$//$NON-NLS-2$
++						toHighlight = image.substring(1,image.length()-1);
++					}
++					if (image.equals("AND") || image.equals("OR")) //$NON-NLS-1$ //$NON-NLS-2$
++						continue;
++					set .add(toHighlight);
++
++				}
++				highlight = buildHighlight(set);
++				collector.addHits(LocalSearchManager.asList(topDocs, searcher), highlight==null?"":highlight); //$NON-NLS-1$
+ 			}
++
+ 		} catch (BooleanQuery.TooManyClauses tmc) {
+ 			collector.addQTCException(new QueryTooComplexException());
+ 		} catch (QueryTooComplexException qe) {
+@@ -647,6 +701,18 @@
+ 		} finally {
+ 			unregisterSearch(Thread.currentThread());
+ 		}
++	}
++
++	private boolean isWildcardQuery(String searchWord) {
++		return searchWord.contains("?")|| searchWord.contains("*");  //$NON-NLS-1$//$NON-NLS-2$
++	}
++
++	private String buildHighlight(Set<String> set) {
++		StringBuilder sb = new StringBuilder();
++		for (String string : set) {
++			sb.append("\""+string+"\"");  //$NON-NLS-1$//$NON-NLS-2$
++		}
++		return sb.toString();
+ 	}
+ 
+ 	@Override
+@@ -718,25 +785,27 @@
+ 
+ 	/**
+ 	 * Determines whether an index can be read by the Lucene bundle
+-	 * @param indexVersionString The version of an Index directory
++	 *
++	 * @param indexVersionString
++	 *            The version of an Index directory
+ 	 * @return
+ 	 */
+ 	public boolean isLuceneCompatible(String indexVersionString) {
+-		if (indexVersionString==null) return false;
++		if (indexVersionString == null)
++			return false;
+ 		String luceneVersionString = ""; //$NON-NLS-1$
+ 		Bundle luceneBundle = Platform.getBundle(LUCENE_BUNDLE_ID);
+ 		if (luceneBundle != null) {
+-			luceneVersionString += luceneBundle.getHeaders()
+-					.get(Constants.BUNDLE_VERSION);
++			luceneVersionString += luceneBundle.getHeaders().get(Constants.BUNDLE_VERSION);
+ 		}
+ 		Version luceneVersion = new Version(luceneVersionString);
+ 		Version indexVersion = new Version(indexVersionString);
+-		Version v191 = new Version(1, 9, 1);
+-		if (indexVersion.compareTo(v191) < 0) {
+-			// index is older than Lucene 1.9.1
++		Version v500 = new Version(5, 0, 0);
++		if (indexVersion.compareTo(v500) < 0) {
++			// index is older than Lucene 5.0.0
+ 			return false;
+ 		}
+-		if ( luceneVersion.compareTo(indexVersion) >= 0 ) {
++		if (luceneVersion.compareTo(indexVersion) >= 0) {
+ 			// Lucene bundle is newer than the index
+ 			return true;
+ 		}
+@@ -801,7 +870,7 @@
+ 	public void openSearcher() throws IOException {
+ 		synchronized (searcherCreateLock) {
+ 			if (searcher == null) {
+-				searcher = new IndexSearcher(IndexReader.open(luceneDirectory, false));
++				searcher = new IndexSearcher(DirectoryReader.open(luceneDirectory));
+ 			}
+ 		}
+ 	}
+@@ -819,7 +888,7 @@
+ 				if (searches.isEmpty()) {
+ 					if (searcher != null) {
+ 						try {
+-							searcher.close();
++							searcher.getIndexReader().close();
+ 						} catch (IOException ioe) {
+ 						}
+ 					}
+@@ -837,7 +906,8 @@
+ 	 * Finds and unzips prebuild index specified in preferences
+ 	 */
+ 	private void unzipProductIndex() {
+-		String indexPluginId = Platform.getPreferencesService().getString(HelpBasePlugin.PLUGIN_ID, "productIndex", null, null); //$NON-NLS-1$
++		String indexPluginId = Platform.getPreferencesService().getString(HelpBasePlugin.PLUGIN_ID,
++				"productIndex", null, null); //$NON-NLS-1$
+ 		if (indexPluginId == null || indexPluginId.length() <= 0) {
+ 			return;
+ 		}
+@@ -899,7 +969,7 @@
+ 	private void cleanOldIndex() {
+ 		try (LimitTokenCountAnalyzer analyzer = new LimitTokenCountAnalyzer(analyzerDescriptor.getAnalyzer(), 10000);
+ 				IndexWriter cleaner = new IndexWriter(luceneDirectory,
+-						new IndexWriterConfig(org.apache.lucene.util.Version.LUCENE_31, analyzer)
++						new IndexWriterConfig(analyzer)
+ 								.setOpenMode(OpenMode.CREATE))) {
+ 
+ 		} catch (IOException ioe) {
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/SmartAnalyzer.java b/org.eclipse.help.base/src/org/eclipse/help/internal/search/SmartAnalyzer.java
+index d0a7bb7..444b66c 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/SmartAnalyzer.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/SmartAnalyzer.java
+@@ -7,10 +7,9 @@
+  *
+  * Contributors:
+  *     IBM Corporation - initial API and implementation
++ *     Sopot Cela - Bug 466829 - Migration to Lucene 5
+  *******************************************************************************/
+ package org.eclipse.help.internal.search;
+-
+-import java.io.*;
+ 
+ import org.apache.lucene.analysis.*;
+ 
+@@ -18,7 +17,7 @@
+  * Smart Analyzer. Chooses underlying implementation based on the field which
+  * text is analyzed.
+  */
+-public final class SmartAnalyzer extends Analyzer {
++public final class SmartAnalyzer extends AnalyzerWrapper {
+ 	Analyzer pluggedInAnalyzer;
+ 	Analyzer exactAnalyzer;
+ 
+@@ -26,20 +25,19 @@
+ 	 * Constructor for SmartAnalyzer.
+ 	 */
+ 	public SmartAnalyzer(String locale, Analyzer pluggedInAnalyzer) {
+-		super();
++		super(pluggedInAnalyzer.getReuseStrategy());
+ 		this.pluggedInAnalyzer = pluggedInAnalyzer;
+ 		this.exactAnalyzer = new DefaultAnalyzer(locale);
+ 	}
+ 	/**
+-	 * Creates a TokenStream which tokenizes all the text in the provided
+-	 * Reader. Delegates to DefaultAnalyzer when field used to search for exact
++	 * Delegates to DefaultAnalyzer when field used to search for exact
+ 	 * match, and to plugged-in analyzer for other fields.
+ 	 */
+ 	@Override
+-	public final TokenStream tokenStream(String fieldName, Reader reader) {
++	public final Analyzer getWrappedAnalyzer(String fieldName) {
+ 		if (fieldName != null && fieldName.startsWith("exact_")) { //$NON-NLS-1$
+-			return exactAnalyzer.tokenStream(fieldName, reader);
++			return exactAnalyzer;
+ 		}
+-		return pluggedInAnalyzer.tokenStream(fieldName, reader);
++		return pluggedInAnalyzer;
+ 	}
+ }
+diff --git a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/WordTokenStream.java b/org.eclipse.help.base/src/org/eclipse/help/internal/search/WordTokenStream.java
+index 0b70cf7..79d5592 100644
+--- a/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/WordTokenStream.java
++++ b/eclipse.platform.ua/org.eclipse.help.base/src/org/eclipse/help/internal/search/WordTokenStream.java
+@@ -7,16 +7,18 @@
+  *
+  * Contributors:
+  *     IBM Corporation - initial API and implementation
++ *     Sopot Cela - Bug 466829 - Migration to Lucene 5
+  *******************************************************************************/
+ package org.eclipse.help.internal.search;
+ 
+-import com.ibm.icu.text.BreakIterator;
+ import java.io.IOException;
+-import java.io.Reader;
+ import java.util.Locale;
++
+ import org.apache.lucene.analysis.TokenStream;
+ import org.apache.lucene.analysis.Tokenizer;
+ import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
++
++import com.ibm.icu.text.BreakIterator;
+ 
+ /**
+  * WordTokenStream obtains tokens containing words appropriate for use with
+@@ -24,7 +26,6 @@
+  */
+ public final class WordTokenStream extends Tokenizer {
+ 	private static final int BUF_LEN = 4096;
+-	private final Reader reader;
+ 	private final BreakIterator boundary;
+ 	private StringBuffer strbuf;
+ 
+@@ -34,8 +35,8 @@
+ 	/**
+ 	 * Constructor
+ 	 */
+-	public WordTokenStream(String fieldName, Reader reader, Locale locale) {
+-		this.reader = reader;
++	public WordTokenStream(Locale locale) {
++		super();
+ 		boundary = BreakIterator.getWordInstance(locale);
+ 
+ 	}
+@@ -52,9 +53,9 @@
+ 	    if(strbuf == null) {
+ 			int available;
+ 			char[] cbuf = new char[BUF_LEN];
+-			while ((available = reader.read(cbuf)) <= 0) {
++			while ((available = input.read(cbuf)) <= 0) {
+ 				if (available < 0) {
+-					reader.close();
++					input.close();
+ 					return false;
+ 				}
+ 			}
+@@ -62,7 +63,7 @@
+ 			strbuf.append(cbuf, 0, available);
+ 			// read more until white space (or EOF)
+ 			int c;
+-			while (0 <= (c = reader.read())) {
++			while (0 <= (c = input.read())) {
+ 				strbuf.append((char) c);
+ 				if (c == ' ' || c == '\r' || c == '\n' || c == '\t') {
+ 					break;
+@@ -70,7 +71,7 @@
+ 			}
+ 
+ 			if (c < 0) {
+-				reader.close();
++				input.close();
+ 			}
+ 
+ 			boundary.setText(strbuf.toString());
+@@ -107,9 +108,10 @@
+ 
+ 	@Override
+ 	public void close() throws IOException {
++		super.close();
+ 		/// Unlikely to be called as this is a reused
+-	    if (this.reader != null) {
+-	    	this.reader.close();
++	    if (this.input != null) {
++	    	this.input.close();
+ 	    }
+ 	}
+ }
+diff --git a/eclipse.platform.ua/org.eclipse.help.webapp/web-archive/org.eclipse.help.infocenter-feature/feature.xml b/org.eclipse.help.webapp/web-archive/org.eclipse.help.infocenter-feature/feature.xml
+index 8438100..174e92a 100644
+--- a/eclipse.platform.ua/org.eclipse.help.webapp/web-archive/org.eclipse.help.infocenter-feature/feature.xml
++++ b/eclipse.platform.ua/org.eclipse.help.webapp/web-archive/org.eclipse.help.infocenter-feature/feature.xml
+@@ -74,20 +74,6 @@
+          unpack="false"/>
+ 
+    <plugin
+-         id="org.apache.lucene.analysis"
+-         download-size="0"
+-         install-size="0"
+-         version="0.0.0"
+-         unpack="false"/>
+-         
+-   <plugin
+-         id="org.apache.lucene.core"
+-         download-size="0"
+-         install-size="0"
+-         version="0.0.0"
+-         unpack="false"/>
+-
+-   <plugin
+          id="org.eclipse.core.contenttype"
+          download-size="0"
+          install-size="0"
+@@ -227,4 +213,32 @@
+          version="0.0.0"
+          unpack="false"/>
+ 
++   <plugin
++         id="org.apache.lucene.analyzers-common"
++         download-size="0"
++         install-size="0"
++         version="0.0.0"
++         unpack="false"/>
++
++   <plugin
++         id="org.apache.lucene.analyzers-smartcn"
++         download-size="0"
++         install-size="0"
++         version="0.0.0"
++         unpack="false"/>
++
++   <plugin
++         id="org.apache.lucene.core"
++         download-size="0"
++         install-size="0"
++         version="0.0.0"
++         unpack="false"/>
++
++   <plugin
++         id="org.apache.lucene.queryparser"
++         download-size="0"
++         install-size="0"
++         version="0.0.0"
++         unpack="false"/>
++
+ </feature>
+diff --git a/eclipse.platform.ua/org.eclipse.ua.tests/META-INF/MANIFEST.MF b/org.eclipse.ua.tests/META-INF/MANIFEST.MF
+index 6bcf9bc..23f8910 100644
+--- a/eclipse.platform.ua/org.eclipse.ua.tests/META-INF/MANIFEST.MF
++++ b/eclipse.platform.ua/org.eclipse.ua.tests/META-INF/MANIFEST.MF
+@@ -19,14 +19,13 @@
+  org.eclipse.ui.forms,
+  org.eclipse.ui.browser;bundle-version="3.2.300",
+  org.eclipse.equinox.jsp.jasper;bundle-version="1.0.200",
+- org.eclipse.equinox.jsp.jasper.registry;bundle-version="1.0.100"
++ org.eclipse.equinox.jsp.jasper.registry;bundle-version="1.0.100",
++ org.apache.lucene.analyzers-common;bundle-version="5.1.0",
++ org.apache.lucene.core;bundle-version="5.1.0"
+ Bundle-ActivationPolicy: lazy
+ Bundle-Vendor: Eclipse.org
+ Import-Package: javax.servlet;version="3.1.0",
+- javax.servlet.http;version="3.1.0",
+- org.apache.lucene.index;core=split;version="[3.5.0,4.0.0)",
+- org.apache.lucene.search;core=split;version="[3.5.0,4.0.0)",
+- org.apache.lucene.store;core=split;version="[3.5.0,4.0.0)"
++ javax.servlet.http;version="3.1.0"
+ Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+ Export-Package: org.eclipse.ua.tests,
+  org.eclipse.ua.tests.browser,
+diff --git a/eclipse.platform.ua/org.eclipse.ua.tests/data/help/searchindex/index291/write.lock b/org.eclipse.ua.tests/data/help/searchindex/index291/write.lock
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/eclipse.platform.ua/org.eclipse.ua.tests/data/help/searchindex/index291/write.lock
+diff --git a/eclipse.platform.ua/org.eclipse.ua.tests/data/help/searchindex/index510/_0.cfe b/org.eclipse.ua.tests/data/help/searchindex/index510/_0.cfe
+new file mode 100644
+index 0000000..09ec2c9
+--- /dev/null
++++ b/eclipse.platform.ua/org.eclipse.ua.tests/data/help/searchindex/index510/_0.cfe
+Binary files differ
+diff --git a/eclipse.platform.ua/org.eclipse.ua.tests/data/help/searchindex/index510/_0.cfs b/org.eclipse.ua.tests/data/help/searchindex/index510/_0.cfs
+new file mode 100644
+index 0000000..3aa288a
+--- /dev/null
++++ b/eclipse.platform.ua/org.eclipse.ua.tests/data/help/searchindex/index510/_0.cfs
+Binary files differ
+diff --git a/eclipse.platform.ua/org.eclipse.ua.tests/data/help/searchindex/index510/_0.si b/org.eclipse.ua.tests/data/help/searchindex/index510/_0.si
+new file mode 100644
+index 0000000..d897bfc
+--- /dev/null
++++ b/eclipse.platform.ua/org.eclipse.ua.tests/data/help/searchindex/index510/_0.si
+Binary files differ
+diff --git a/eclipse.platform.ua/org.eclipse.ua.tests/data/help/searchindex/index510/segments_1 b/org.eclipse.ua.tests/data/help/searchindex/index510/segments_1
+new file mode 100644
+index 0000000..4878901
+--- /dev/null
++++ b/eclipse.platform.ua/org.eclipse.ua.tests/data/help/searchindex/index510/segments_1
+Binary files differ
+diff --git a/eclipse.platform.ua/org.eclipse.ua.tests/data/help/searchindex/index510/write.lock b/org.eclipse.ua.tests/data/help/searchindex/index510/write.lock
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/eclipse.platform.ua/org.eclipse.ua.tests/data/help/searchindex/index510/write.lock
+diff --git a/eclipse.platform.ua/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/EncodedCharacterSearch.java b/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/EncodedCharacterSearch.java
+index 1dd4876..02b2e5b 100644
+--- a/eclipse.platform.ua/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/EncodedCharacterSearch.java
++++ b/eclipse.platform.ua/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/EncodedCharacterSearch.java
+@@ -7,6 +7,7 @@
+  *
+  * Contributors:
+  *     IBM Corporation - initial API and implementation
++ *     Sopot Cela - Bug 466829 - Migration to Lucene 5
+  *******************************************************************************/
+ package org.eclipse.ua.tests.help.search;
+ 
+@@ -36,7 +37,7 @@
+ 	@Test
+     public void testUtf8Hebrew() {
+     	SearchTestUtils.searchOneLocale("\u05D0\u05B7\u05E1\u05B0\u05D8\u05B0\u05E8\u05D5\u05B9\u05E0\u05D5\u05B9\u05DE"
+-    			                         + "\u05B0\u05D9\u05B8\u05D4) \u05DC\u05B4\u05E7\u05BC\u05D5\u05BC\u05D9 (\u05D9\u05E8\u05D7 \u05D0\u05D5 \u05E9\u05DE\u05E9", new String[] {"/org.eclipse.ua.tests/data/help/search/testnlUTF8.htm" }, "en");
++    			                         + "\u05B0\u05D9\u05B8\u05D4\\) \u05DC\u05B4\u05E7\u05BC\u05D5\u05BC\u05D9 \\(\u05D9\u05E8\u05D7 \u05D0\u05D5 \u05E9\u05DE\u05E9", new String[] {"/org.eclipse.ua.tests/data/help/search/testnlUTF8.htm" }, "en");
+     }
+ 
+ 
+diff --git a/eclipse.platform.ua/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/PrebuiltIndexCompatibility.java b/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/PrebuiltIndexCompatibility.java
+index 640d4c9..33ae5ba 100644
+--- a/eclipse.platform.ua/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/PrebuiltIndexCompatibility.java
++++ b/eclipse.platform.ua/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/PrebuiltIndexCompatibility.java
+@@ -22,20 +22,21 @@
+ import java.net.URL;
+ import java.util.ArrayList;
+ 
++import org.apache.lucene.analysis.standard.StandardAnalyzer;
+ import org.apache.lucene.index.CorruptIndexException;
+-import org.apache.lucene.index.IndexReader;
++import org.apache.lucene.index.DirectoryReader;
+ import org.apache.lucene.search.IndexSearcher;
+ import org.apache.lucene.search.Query;
+ import org.apache.lucene.search.TopDocs;
+ import org.apache.lucene.store.Directory;
+ import org.apache.lucene.store.NIOFSDirectory;
++import org.apache.lucene.util.QueryBuilder;
+ import org.eclipse.core.runtime.FileLocator;
+ import org.eclipse.core.runtime.NullProgressMonitor;
+ import org.eclipse.core.runtime.Path;
+ import org.eclipse.help.internal.base.BaseHelpSystem;
+ import org.eclipse.help.internal.search.AnalyzerDescriptor;
+ import org.eclipse.help.internal.search.PluginIndex;
+-import org.eclipse.help.internal.search.QueryBuilder;
+ import org.eclipse.help.internal.search.SearchIndexWithIndexingProgress;
+ import org.eclipse.ua.tests.plugin.UserAssistanceTestPlugin;
+ import org.junit.Test;
+@@ -56,28 +57,12 @@
+ public class PrebuiltIndexCompatibility {
+ 
+ 	/**
+-	 * Test index built with Lucene 1.9.1
+-	 */
+-	@Test
+-	public void test1_9_1_IndexReadable() throws Exception {
+-		checkReadable("data/help/searchindex/index191");
+-	}
+-
+-	/**
+-	 * Test index built with Lucene 2.9.1
+-	 */
+-	@Test
+-	public void test2_9_1_IndexReadable() throws Exception {
+-		checkReadable("data/help/searchindex/index291");
+-	}
+-
+-	/**
+ 	 ** Test compatibility of Lucene 1.9.1 index with current Lucene
+ 	 */
+ 	@Test
+ 	public void test1_9_1Compatible()
+ 	{
+-		checkCompatible("data/help/searchindex/index191", true);
++		checkCompatible("data/help/searchindex/index191", false);
+ 	}
+ 
+ 	/**
+@@ -86,13 +71,13 @@
+ 	@Test
+ 	public void test2_9_1Compatible()
+ 	{
+-		checkCompatible("data/help/searchindex/index291", true);
++		checkCompatible("data/help/searchindex/index291", false);
+ 	}
+ 
+ 	@Test
+ 	public void test1_9_1LuceneCompatible()
+ 	{
+-		checkLuceneCompatible("1.9.1", true);
++		checkLuceneCompatible("1.9.1", false);
+ 	}
+ 
+ 	@Test
+@@ -104,7 +89,12 @@
+ 	@Test
+ 	public void test2_9_1LuceneCompatible()
+ 	{
+-		checkLuceneCompatible("2.9.1", true);
++		checkLuceneCompatible("2.9.1", false);
++	}
++
++	@Test
++	public void test5_1_0LuceneCompatible() {
++		checkLuceneCompatible("5.1.0", true);
+ 	}
+ 
+ 	@Test
+@@ -143,6 +133,11 @@
+ 		assertFalse(index1.equals(index2));
+ 	}
+ 
++	@Test
++	public void test5_1_0IndexReadable() throws CorruptIndexException, IOException {
++		checkReadable("data/help/searchindex/index510");
++	}
++
+     /*
+      * Verifies that a prebuilt index can be searched
+      */
+@@ -154,10 +149,11 @@
+ 		URL resolved = FileLocator.resolve(url);
+ 		if ("file".equals(resolved.getProtocol())) { //$NON-NLS-1$
+ 			String filePath = resolved.getFile();
+-			QueryBuilder queryBuilder = new QueryBuilder("eclipse", new AnalyzerDescriptor("en-us"));
+-			Query luceneQuery = queryBuilder.getLuceneQuery(new ArrayList<String>() , false);
+-			try (Directory luceneDirectory = new NIOFSDirectory(new File(filePath));
+-					IndexSearcher searcher = new IndexSearcher(IndexReader.open(luceneDirectory, true))) {
++			StandardAnalyzer standardAnalyzer = new StandardAnalyzer();
++			QueryBuilder builder = new QueryBuilder(standardAnalyzer);
++			Query luceneQuery = builder.createBooleanQuery("contents", "eclipse");
++			try (Directory luceneDirectory = new NIOFSDirectory(new File(filePath).toPath())) {
++				IndexSearcher searcher = new IndexSearcher(DirectoryReader.open(luceneDirectory));
+ 				TopDocs hits = searcher.search(luceneQuery, 500);
+ 				assertEquals(hits.totalHits, 1);
+ 			}
+diff --git a/eclipse.platform.ua/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/SearchParticipantTest.java b/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/SearchParticipantTest.java
+index 223e42a..2e782c3 100644
+--- a/eclipse.platform.ua/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/SearchParticipantTest.java
++++ b/eclipse.platform.ua/org.eclipse.ua.tests/help/org/eclipse/ua/tests/help/search/SearchParticipantTest.java
+@@ -7,6 +7,7 @@
+  *
+  * Contributors:
+  *     IBM Corporation - initial API and implementation
++ *     Sopot Cela - Bug 466829 - Migration to Lucene 5
+  *******************************************************************************/
+ package org.eclipse.ua.tests.help.search;
+ 
+@@ -35,7 +36,7 @@
+ 
+ 	@Test
+ 	public void testSearchUsingAndInSeparateDocs() {
+-		SearchTestUtils.searchAllLocales("jduehdye and olhoykk", new String[0]);
++		SearchTestUtils.searchAllLocales("jduehdye AND olhoykk", new String[0]);
+ 	}
+ 
+ 	@Test
+--- a/eclipse.platform.common/bundles/org.eclipse.platform.doc.isv/pom.xml
++++ b/eclipse.platform.common/bundles/org.eclipse.platform.doc.isv/pom.xml
+@@ -101,7 +101,7 @@
+                   </requirement>
+                   <requirement>
+                     <type>eclipse-plugin</type>
+-                    <id>org.apache.lucene.analysis</id>
++                    <id>org.apache.lucene.analyzers-common</id>
+                     <versionRange>0.0.0</versionRange>
+                   </requirement>
+                   <requirement>
