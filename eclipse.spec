@@ -2,18 +2,17 @@
 %{!?scl:%global pkg_name %{name}}
 %{?java_common_find_provides_and_requires}
 
-%global baserelease 8
+%global baserelease 2
 
 # Set to 1 to build Eclipse without circular dependency to eclipse-pde, API
 # generation and docs will not be built and a second run will be required, but
 # this is a way to bootstrap Eclipse on secondary archs.
-%global bootstrap       0
+%global bootstrap       1
 
 Epoch:                  1
 
 %global eb_commit       4e8087f81be00857cd9cdce549392db2a985155a
-%global eclipse_tag     S4_6_0_RC4a
-%global eclipse_version 4.6.0
+%global eclipse_tag     S4_6_1_RC4
 
 %if 0%{?fedora} >= 25
 %global _jetty_version  9.4.0
@@ -58,8 +57,8 @@ Epoch:                  1
 
 Summary:        An open, extensible IDE
 Name:           %{?scl_prefix}eclipse
-Version:        %{eclipse_version}
-Release:        3.%{baserelease}%{?dist}
+Version:        4.6.1
+Release:        2.%{baserelease}%{?dist}
 License:        EPL
 URL:            http://www.eclipse.org/
 
@@ -135,10 +134,10 @@ Patch23: eclipse-webkit2-by-default.patch
 # Port to jetty 9.4
 Patch24: eclipse-jetty-9.4.patch
 Patch25: eclipse-popupdialog-color.patch
+Patch26: eclipse-make-droplets-runnable.patch
+Patch27: eclipse-disable-droplets-in-dropins.patch
 
-Patch26: eclipse-fix-ant-version.patch
-Patch27: eclipse-make-droplets-runnable.patch
-Patch28: eclipse-disable-droplets-in-dropins.patch
+Patch28: eclipse-fix-ant-version.patch
 
 BuildRequires: %{?scl_prefix}tycho >= 0.25.0
 BuildRequires: %{?scl_prefix}tycho-extras >= 0.25.0
@@ -200,7 +199,7 @@ BuildRequires: %{?scl_prefix_java_common}xml-commons-apis >= 1.4.01-12
 BuildRequires: %{?scl_prefix_java_common}atinject
 BuildRequires: %{?scl_prefix_java_common}atinject-tck
 BuildRequires: %{?scl_prefix}eclipse-filesystem
-BuildRequires: %{?scl_prefix}eclipse-ecf-core >= 3.13.1-1
+BuildRequires: %{?scl_prefix}eclipse-ecf-core >= 3.13.2-1
 BuildRequires: %{?scl_prefix}eclipse-emf-core >= 1:2.12.0-1
 BuildRequires: %{?scl_prefix}eclipse-license
 BuildRequires: %{?scl_prefix_java_common}glassfish-jsp-api >= 2.2.1-4
@@ -248,7 +247,7 @@ Summary:        Eclipse OSGi - Equinox
 
 Requires:       %{?scl_prefix_java_common}javapackages-tools
 Requires:       %{?scl_prefix}eclipse-filesystem
-Provides:       %{?scl_prefix}osgi(system.bundle) = %{epoch}:%{eclipse_version}
+Provides:       %{?scl_prefix}osgi(system.bundle) = %{epoch}:%{version}
 
 %description  equinox-osgi
 Eclipse OSGi - Equinox
@@ -283,15 +282,15 @@ Requires: %{?scl_prefix}sac >= 1.3-12
 Requires: %{?scl_prefix_java_common}batik
 Requires: %{?scl_prefix_java_common}xml-commons-apis >= 1.4.01-12
 Requires: %{?scl_prefix_java_common}atinject
-Requires: %{?scl_prefix}eclipse-ecf-core >= 3.13.1-1
+Requires: %{?scl_prefix}eclipse-ecf-core >= 3.13.2-1
 Requires: %{?scl_prefix}eclipse-emf-core >= 1:2.12.0-1
 Requires: %{?scl_prefix_java_common}glassfish-jsp-api >= 2.2.1-4
 Requires: %{?scl_prefix_java_common}glassfish-jsp >= 2.2.5
 Requires: %{?scl_prefix}glassfish-servlet-api >= 3.1.0
 Requires: %{?scl_prefix}glassfish-el >= 3.0.0
 Requires: %{?scl_prefix}icu4j >= 1:54.1.1-2
-Requires: %{name}-swt = %{epoch}:%{eclipse_version}-%{release}
-Requires: %{name}-equinox-osgi = %{epoch}:%{eclipse_version}-%{release}
+Requires: %{name}-swt = %{epoch}:%{version}-%{release}
+Requires: %{name}-equinox-osgi = %{epoch}:%{version}-%{release}
 Requires: %{?scl_prefix_java_common}httpcomponents-core
 Requires: %{?scl_prefix_java_common}httpcomponents-client
 Requires: %{?scl_prefix_java_common}xz-java
@@ -304,8 +303,8 @@ Java Development Tools or the Plugin Development Environment.
 Summary:        Eclipse Java Development Tools
 BuildArch:      noarch
 
-Provides:       %{name} = %{epoch}:%{eclipse_version}-%{release}
-Requires:       %{name}-platform = %{epoch}:%{eclipse_version}-%{release}
+Provides:       %{name} = %{epoch}:%{version}-%{release}
+Requires:       %{name}-platform = %{epoch}:%{version}-%{release}
 Requires:       %{?scl_prefix_java_common}junit >= 4.10-5
 Requires:       %{?scl_prefix_java_common}hamcrest
 
@@ -316,8 +315,8 @@ developing software written in the Java programming language.
 %package        pde
 Summary:        Eclipse Plugin Development Environment
 
-Requires:       %{name}-platform = %{epoch}:%{eclipse_version}-%{release}
-Requires:       %{name}-jdt = %{epoch}:%{eclipse_version}-%{release}
+Requires:       %{name}-platform = %{epoch}:%{version}-%{release}
+Requires:       %{name}-jdt = %{epoch}:%{version}-%{release}
 Requires:       %{?scl_prefix_java_common}objectweb-asm5 >= 5.0.3-1
 
 # For PDE Build wrapper script + creating jars
@@ -332,7 +331,7 @@ developing Eclipse plugins.
 Summary:        Eclipse p2 Discovery
 BuildArch:      noarch
 
-Requires:       %{name}-platform = %{epoch}:%{eclipse_version}-%{release}
+Requires:       %{name}-platform = %{epoch}:%{version}-%{release}
 # Obsoletes added in F22
 Obsoletes:      %{name}-p2-discovery < 1:4.5.0-0.10
 
@@ -345,7 +344,7 @@ installer UIs.
 %package        contributor-tools
 Summary:        Tools for Eclipse Contributors
 
-Requires:       %{name}-platform = %{epoch}:%{eclipse_version}-%{release}
+Requires:       %{name}-platform = %{epoch}:%{version}-%{release}
 
 %description    contributor-tools
 This package contains tools specifically for Eclipse contributors. It includes
@@ -353,6 +352,11 @@ SWT tools, E4 tools, Rel-Eng tools and Eclipse Test frameworks.
 
 %package        tests
 Summary:        Eclipse Tests
+Requires:       %{name}-pde = %{epoch}:%{version}-%{release}
+Requires:       %{?scl_prefix_java_common}easymock2
+Requires:       %{?scl_prefix}mockito
+Requires:       %{?scl_prefix_java_common}atinject-tck
+Requires:       %{?scl_prefix_java_common}apache-commons-fileupload
 
 %description    tests
 Eclipse Tests.
@@ -402,7 +406,10 @@ for m in $(find -name MANIFEST.MF -exec grep -l "bundle-version=\"4.12.0\"" {} \
   sed -i -e '/org.junit;/s/4.12/4.11/' $m
 done
 
+# Use ecj when bootstrapping
+%if %{bootstrap}
 sed -i -e 's/groupId>org.eclipse.jdt</groupId>org.eclipse.tycho</' eclipse-platform-parent/pom.xml
+%endif
 
 # Resolving the target platform requires too many changes, so don't use it
 %pom_xpath_remove "pom:configuration/pom:target" eclipse-platform-parent
@@ -662,7 +669,10 @@ set -e -x
 export MAVEN_OPTS="-Xmx1000m -XX:CompileCommand=exclude,org/eclipse/tycho/core/osgitools/EquinoxResolver,newState ${MAVEN_OPTS}"
 export JAVA_HOME=%{java_home}
 
-%mvn_build -j -f -- -DforceContextQualifier=$(date -u +v%Y%m%d-1000) \
+# Qualifier generated from last modification time of source tarball
+QUALIFIER=$(date -u -d"$(stat --format=%y %{SOURCE0})" +v%Y%m%d-%H%M)
+
+%mvn_build -j -f -- -DforceContextQualifier=$QUALIFIER \
 %if %{bootstrap}
    -P !api-generation,!build-docs \
 %endif
@@ -869,7 +879,7 @@ pushd $RPM_BUILD_ROOT/%{_javadir}/eclipse-testing/plugins
  ln -s $(build-classpath mockito/mockito-core) ${f%.jar}.jar
  f=`ls | grep -e "^net.sf.cglib.core_"`
  rm -rf $f
- ln -s $(build-classpath cglib) ${f%.jar}.jar
+ ln -s $(build-classpath cglib-3) ${f%.jar}.jar
  f=`ls | grep -e "^org.objenesis_"`
  rm -rf $f
  ln -s $(build-classpath objenesis/objenesis) ${f%.jar}.jar
@@ -1147,14 +1157,36 @@ fi
 %{_libdir}/eclipse/plugins/org.eclipse.osgi.compatibility.state_*
 
 %changelog
-* Tue Aug 16 2016 Roland Grunberg <rgrunber@redhat.com> - 1:4.6.0-3.8
+* Tue Sep 20 2016 Mat Booth <mat.booth@redhat.com> - 1:4.6.1-2.2
+- Re-synchronise with Fedora branch
+- Add missing requires to test package to fix symlinks,
+  rhbz#1373096 and rhbz#1367471
+
+* Tue Sep 20 2016 Mat Booth <mat.booth@redhat.com> - 1:4.6.1-2.1
+- Auto SCL-ise package for rh-eclipse46 collection
+
+* Thu Sep 15 2016 Mat Booth <mat.booth@redhat.com> - 1:4.6.1-2
+- Perform non-bootstrap build
+- Rebuild for new eclipse-ecf
+
+* Wed Sep 14 2016 Mat Booth <mat.booth@redhat.com> - 1:4.6.1-1
+- Update to Neon.1 release.
+- Set qualifiers at source-modification-time instead of build-time, to
+  eliminate descrepancies between architectures, rhbz#1374938
+- Set bootstrap flag for new primary architecture.
+
+* Fri Sep 2 2016 Alexander Kurtakov <akurtako@redhat.com> 1:4.6.0-7
+- Rebuild for latest jsch.
+
+* Thu Aug 18 2016 Roland Grunberg <rgrunber@redhat.com> - 1:4.6.0-6
 - Disable droplets being loaded by the reconciler.
 - Fix possible NPE in droplet p2.runnable property check.
 
-* Fri Aug 05 2016 Roland Grunberg <rgrunber@redhat.com> - 1:4.6.0-3.7
+* Fri Aug 05 2016 Roland Grunberg <rgrunber@redhat.com> - 1:4.6.0-5
 - Improve 'p2.runnable' check in ExtensionLocationArtifactRepository.
 
-* Thu Aug 04 2016 Roland Grunberg <rgrunber@redhat.com> - 1:4.6.0-3.6
+* Wed Aug 03 2016 Roland Grunberg <rgrunber@redhat.com> - 1:4.6.0-4
+- Add missing droplets logic to the EngineActivator.
 - Restore 'p2.runnable' property for droplets.
 
 * Tue Aug 02 2016 Mat Booth <mat.booth@redhat.com> - 1:4.6.0-3.5
