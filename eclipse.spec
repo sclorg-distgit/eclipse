@@ -2,7 +2,7 @@
 %{!?scl:%global pkg_name %{name}}
 %{?java_common_find_provides_and_requires}
 
-%global baserelease 6
+%global baserelease 7
 
 # Set to 1 to build Eclipse without circular dependency to eclipse-pde, API
 # generation and docs will not be built and a second run will be required, but
@@ -1145,6 +1145,9 @@ fi
 %{_libdir}/eclipse/plugins/org.eclipse.osgi.compatibility.state_*
 
 %changelog
+* Fri Aug 05 2016 Roland Grunberg <rgrunber@redhat.com> - 1:4.6.0-3.7
+- Improve 'p2.runnable' check in ExtensionLocationArtifactRepository.
+
 * Thu Aug 04 2016 Roland Grunberg <rgrunber@redhat.com> - 1:4.6.0-3.6
 - Restore 'p2.runnable' property for droplets.
 
