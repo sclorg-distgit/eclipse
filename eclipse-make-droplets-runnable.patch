@@ -1,4 +1,4 @@
-From 3e44e317b495f0edc2d9b8b5b9e35415122fb6c9 Mon Sep 17 00:00:00 2001
+From decc6ec5f3c5ce87fa50c2cfe932d66e89496810 Mon Sep 17 00:00:00 2001
 From: Roland Grunberg <rgrunber@redhat.com>
 Date: Wed, 3 Aug 2016 14:57:10 -0400
 Subject: [PATCH] p2 Droplets should be recognized as runnable repositories.
@@ -12,24 +12,27 @@ are runnable repositories.
 
 Change-Id: I0ad0a7557f998b4d032466f89e6cc76036d1fb38
 ---
- .../ExtensionLocationArtifactRepository.java                | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+ .../ExtensionLocationArtifactRepository.java             | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
 diff --git rt.equinox.p2/bundles/org.eclipse.equinox.p2.extensionlocation/src/org/eclipse/equinox/internal/p2/extensionlocation/ExtensionLocationArtifactRepository.java rt.equinox.p2/bundles/org.eclipse.equinox.p2.extensionlocation/src/org/eclipse/equinox/internal/p2/extensionlocation/ExtensionLocationArtifactRepository.java
-index 342e33e..760f367 100644
+index 342e33e..425a166 100644
 --- rt.equinox.p2/bundles/org.eclipse.equinox.p2.extensionlocation/src/org/eclipse/equinox/internal/p2/extensionlocation/ExtensionLocationArtifactRepository.java
 +++ rt.equinox.p2/bundles/org.eclipse.equinox.p2.extensionlocation/src/org/eclipse/equinox/internal/p2/extensionlocation/ExtensionLocationArtifactRepository.java
-@@ -260,6 +260,19 @@ public class ExtensionLocationArtifactRepository extends AbstractRepository<IArt
+@@ -260,6 +260,22 @@ public class ExtensionLocationArtifactRepository extends AbstractRepository<IArt
  		return artifactRepository.getProperties();
  	}
  
 +	public String getProperty(String key) {
 +		if (IArtifactRepository.PROP_RUNNABLE.equals(key)) {
 +			String candidate = getLocation().getPath();
-+			String[] rootPaths = System.getProperty("p2.fragments").split(",");
-+			for (String root : rootPaths) {
-+				if (candidate.startsWith(root)) {
-+					return Boolean.TRUE.toString();
++			String fragments = System.getProperty("p2.fragments");
++			if (fragments != null) {
++				String[] rootPaths = fragments.split(",");
++				for (String root : rootPaths) {
++					if (candidate.startsWith(root)) {
++						return Boolean.TRUE.toString();
++					}
 +				}
 +			}
 +		}

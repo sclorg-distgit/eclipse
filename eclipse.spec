@@ -2,7 +2,7 @@
 %{!?scl:%global pkg_name %{name}}
 %{?java_common_find_provides_and_requires}
 
-%global baserelease 7
+%global baserelease 8
 
 # Set to 1 to build Eclipse without circular dependency to eclipse-pde, API
 # generation and docs will not be built and a second run will be required, but
@@ -138,6 +138,7 @@ Patch25: eclipse-popupdialog-color.patch
 
 Patch26: eclipse-fix-ant-version.patch
 Patch27: eclipse-make-droplets-runnable.patch
+Patch28: eclipse-disable-droplets-in-dropins.patch
 
 BuildRequires: %{?scl_prefix}tycho >= 0.25.0
 BuildRequires: %{?scl_prefix}tycho-extras >= 0.25.0
@@ -394,6 +395,7 @@ tar --strip-components=1 -xf %{SOURCE1}
 %patch25
 %patch26
 %patch27
+%patch28
 
 # Relax version restriction for junit
 for m in $(find -name MANIFEST.MF -exec grep -l "bundle-version=\"4.12.0\"" {} \;) ; do
@@ -1145,6 +1147,10 @@ fi
 %{_libdir}/eclipse/plugins/org.eclipse.osgi.compatibility.state_*
 
 %changelog
+* Tue Aug 16 2016 Roland Grunberg <rgrunber@redhat.com> - 1:4.6.0-3.8
+- Disable droplets being loaded by the reconciler.
+- Fix possible NPE in droplet p2.runnable property check.
+
 * Fri Aug 05 2016 Roland Grunberg <rgrunber@redhat.com> - 1:4.6.0-3.7
 - Improve 'p2.runnable' check in ExtensionLocationArtifactRepository.
 
