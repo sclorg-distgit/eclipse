@@ -1,0 +1,62 @@
+From a589a11f30a72976a418c27c041761dfc6ed3695 Mon Sep 17 00:00:00 2001
+From: Roland Grunberg <rgrunber@redhat.com>
+Date: Wed, 3 Aug 2016 14:57:10 -0400
+Subject: [PATCH] p2 Droplets should be recognized as runnable repositories.
+
+Normally, a runnable repository is identified by the 'p2.runnable'
+property contained within the artifact repository (artifact.xml).
+However, in Fedora we ship p2 Droplets without this file so we need a
+way to let methods like getRunnableRepositories in
+o.e.equinox.internal.p2.touchpoint.eclipse.Util know that p2 Droplets
+are runnable repositories.
+
+Change-Id: I0ad0a7557f998b4d032466f89e6cc76036d1fb38
+---
+ .../ExtensionLocationArtifactRepository.java       | 31 ++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
+
+diff --git rt.equinox.p2/bundles/org.eclipse.equinox.p2.extensionlocation/src/org/eclipse/equinox/internal/p2/extensionlocation/ExtensionLocationArtifactRepository.java rt.equinox.p2/bundles/org.eclipse.equinox.p2.extensionlocation/src/org/eclipse/equinox/internal/p2/extensionlocation/ExtensionLocationArtifactRepository.java
+index 342e33e..7e1c5b2 100644
+--- rt.equinox.p2/bundles/org.eclipse.equinox.p2.extensionlocation/src/org/eclipse/equinox/internal/p2/extensionlocation/ExtensionLocationArtifactRepository.java
++++ rt.equinox.p2/bundles/org.eclipse.equinox.p2.extensionlocation/src/org/eclipse/equinox/internal/p2/extensionlocation/ExtensionLocationArtifactRepository.java
+@@ -260,6 +260,37 @@ public class ExtensionLocationArtifactRepository extends AbstractRepository<IArt
+ 		return artifactRepository.getProperties();
+ 	}
+ 
++	public String getProperty(String key) {
++		if (key.equals(IArtifactRepository.PROP_RUNNABLE)
++				&& getLocation().getScheme().equals("file")
++				&& getLocation().getPath().contains("droplets")) {
++			File extension = new File(getLocation());
++			if (extension.exists()) {
++				// Support the additional 'eclipse' directory if it exists.
++				File[] extensionFiles = extension.listFiles(new FilenameFilter() {
++					public boolean accept(File dir, String name) {
++						return name.equals("eclipse");
++					}
++				});
++
++				File[] listFiles;
++				if (extensionFiles.length == 1) {
++					listFiles = extensionFiles[0].listFiles();
++				} else {
++					listFiles = extension.listFiles();
++				}
++
++				for (File file : listFiles) {
++					if (file.getName().endsWith(".info")) { //$NON-NLS-1$
++						return Boolean.TRUE.toString();
++					}
++				}
++			}
++
++		}
++		return super.getProperty(key);
++	}
++
+ 	public String setProperty(String key, String value, IProgressMonitor monitor) {
+ 		try {
+ 			ensureInitialized();
+-- 
+2.7.4
+
