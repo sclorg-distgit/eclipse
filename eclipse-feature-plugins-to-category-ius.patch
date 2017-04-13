@@ -68,11 +68,9 @@ index 88a8daa..382c5ee 100644
           unpack="false"/>
  
     <plugin
-diff --git eclipse.platform.releng/features/org.eclipse.help-feature/feature.xml eclipse.platform.releng/features/org.eclipse.help-feature/feature.xml
-index c6d5da0..e76f33f 100644
---- eclipse.platform.releng/features/org.eclipse.help-feature/feature.xml
-+++ eclipse.platform.releng/features/org.eclipse.help-feature/feature.xml
-@@ -21,62 +21,6 @@
+--- eclipse.platform.releng/features/org.eclipse.help-feature/feature.xml.orig	2017-01-04 10:57:15.000000000 +0000
++++ eclipse.platform.releng/features/org.eclipse.help-feature/feature.xml	2017-01-13 11:29:16.371473551 +0000
+@@ -23,62 +23,6 @@
     </license>
  
     <plugin
@@ -135,7 +133,7 @@ index c6d5da0..e76f33f 100644
           id="org.eclipse.equinox.http.jetty"
           download-size="0"
           install-size="0"
-@@ -77,55 +77,6 @@
+@@ -135,55 +79,6 @@
           unpack="false"/>
  
     <plugin
@@ -191,7 +189,7 @@ index c6d5da0..e76f33f 100644
           id="org.eclipse.core.net"
           download-size="0"
           install-size="0"
-@@ -139,4 +90,21 @@
+@@ -197,4 +92,21 @@
           version="0.0.0"
           unpack="false"/>
  
@@ -213,10 +211,8 @@ index c6d5da0..e76f33f 100644
 +    </requires>
 +
  </feature>
-diff --git eclipse.platform.ui/features/org.eclipse.e4.rcp/feature.xml eclipse.platform.ui/features/org.eclipse.e4.rcp/feature.xml
-index 8176831..c97bab0 100644
---- eclipse.platform.ui/features/org.eclipse.e4.rcp/feature.xml
-+++ eclipse.platform.ui/features/org.eclipse.e4.rcp/feature.xml
+--- eclipse.platform.ui/features/org.eclipse.e4.rcp/feature.xml.orig	2017-01-13 11:29:16.362473652 +0000
++++ eclipse.platform.ui/features/org.eclipse.e4.rcp/feature.xml	2017-01-13 11:29:16.371473551 +0000
 @@ -95,62 +95,6 @@
           unpack="false"/>
  
@@ -315,7 +311,7 @@ index 8176831..c97bab0 100644
           id="org.eclipse.equinox.preferences"
           download-size="0"
           install-size="0"
-@@ -694,27 +617,6 @@
+@@ -757,27 +680,6 @@
           unpack="false"/>
  
     <plugin
@@ -343,7 +339,7 @@ index 8176831..c97bab0 100644
           id="org.eclipse.equinox.console"
           download-size="0"
           install-size="0"
-@@ -743,13 +645,6 @@
+@@ -806,13 +708,6 @@
           unpack="false"/>
  
     <plugin
@@ -357,7 +353,7 @@ index 8176831..c97bab0 100644
           id="org.eclipse.e4.emf.xpath"
           download-size="0"
           install-size="0"
-@@ -772,4 +667,19 @@
+@@ -835,4 +730,18 @@
           fragment="true"
           unpack="false"/>
  
@@ -370,10 +366,32 @@ index 8176831..c97bab0 100644
 +     <import plugin="org.apache.felix.gogo.command" />
 +     <import plugin="org.apache.felix.gogo.runtime" />
 +     <import plugin="org.apache.felix.gogo.shell" />
-+     <import plugin="javax.annotation-api" />
 +     <import plugin="org.w3c.dom.svg" />
 +     <import plugin="org.w3c.css.sac" />
 +     <import plugin="javax.inject" />
 +     <import plugin="javax.xml" />
 +   </requires>
  </feature>
+--- eclipse.platform.common/bundles/org.eclipse.platform.doc.isv/pom.xml.orig	2017-01-04 10:54:36.000000000 +0000
++++ eclipse.platform.common/bundles/org.eclipse.platform.doc.isv/pom.xml	2017-01-13 11:28:25.827041896 +0000
+@@ -61,11 +61,6 @@
+                   </requirement>
+                   <requirement>
+                     <type>eclipse-plugin</type>
+-                    <id>javax.annotation</id>
+-                    <versionRange>0.0.0</versionRange>
+-                  </requirement>
+-                  <requirement>
+-                    <type>eclipse-plugin</type>
+                     <id>javax.el</id>
+                     <versionRange>0.0.0</versionRange>
+                   </requirement>
+@@ -96,7 +91,7 @@
+                   </requirement>
+                   <requirement>
+                     <type>eclipse-plugin</type>
+-                    <id>org.apache.jasper.glassfish</id>
++                    <id>org.glassfish.web.javax.servlet.jsp</id>
+                     <versionRange>0.0.0</versionRange>
+                   </requirement>
+                   <requirement>
