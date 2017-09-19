@@ -208,3 +208,41 @@ index bc8963d..fbe4da3 100644
 +test.long.key= Hello World Long
 +duplicate= Duplicate 2
 +SearchResultView.removed_resource= <removed resource>
+--- eclipse.platform/ant/org.eclipse.ant.tests.core/build.properties.orig	2017-03-03 14:20:53.868573338 +0000
++++ eclipse.platform/ant/org.eclipse.ant.tests.core/build.properties	2017-03-06 14:26:42.382365639 +0000
+@@ -23,6 +23,8 @@
+ source.anttestscore.jar = test plugin/,\
+                           tests/
+ source.lib/antTestsSupport.jar = test support/
+-jars.compile.order=anttestscore.jar,lib/antTestsSupport.jar
++source.testlib/classpathOrdering1.jar = testlib_src/classpathOrdering1/
++source.testlib/classpathOrdering2.jar = testlib_src/classpathOrdering2/
++jars.compile.order=anttestscore.jar,lib/antTestsSupport.jar,testlib/classpathOrdering1.jar,testlib/classpathOrdering2.jar
+ output.lib/antTestsSupport.jar = test_support_bin/
+ output.anttestscore.jar = bin/
+--- /dev/null	2017-02-12 18:27:14.283389371 +0000
++++ eclipse.platform/ant/org.eclipse.ant.tests.core/testlib_src/classpathOrdering1/ClasspathOrdering.java	2017-03-06 14:28:57.742879825 +0000
+@@ -0,0 +1,10 @@
++import java.io.PrintStream;
++
++public class ClasspathOrdering
++{
++  public static void main(String[] args)
++  {
++    System.out.println("classpathOrdering1");
++  }
++}
++
+--- /dev/null	2017-02-12 18:27:14.283389371 +0000
++++ eclipse.platform/ant/org.eclipse.ant.tests.core/testlib_src/classpathOrdering2/ClasspathOrdering.java	2017-03-06 14:29:45.759352762 +0000
+@@ -0,0 +1,10 @@
++import java.io.PrintStream;
++
++public class ClasspathOrdering
++{
++  public static void main(String[] args)
++  {
++    System.out.println("classpathOrdering2");
++  }
++}
++

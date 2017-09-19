@@ -1,0 +1,226 @@
+--- eclipse.platform.releng.tychoeclipsebuilder/eclipse-junit-tests/src/main/scripts/test.xml.orig	2017-03-06 14:35:07.000000000 +0000
++++ eclipse.platform.releng.tychoeclipsebuilder/eclipse-junit-tests/src/main/scripts/test.xml	2017-03-07 15:30:44.993586317 +0000
+@@ -39,21 +39,6 @@
+         arg1="${testPlugin}"
+         arg2="org.eclipse.equinox.p2.tests.discovery" />
+     </condition>
+-    <condition
+-      property="extraIU"
+-      value="org.eclipse.osgi.compatibility.plugins.feature.feature.group">
+-      <or>
+-        <equals
+-          arg1="${testPlugin}"
+-          arg2="org.eclipse.osgi.tests" />
+-        <equals
+-          arg1="${testPlugin}"
+-          arg2="org.eclipse.pde.ui.tests" />
+-        <equals
+-          arg1="${testPlugin}"
+-          arg2="org.eclipse.pde.api.tools.tests" />
+-      </or>
+-    </condition>
+ 
+     <antcall target="setupRepo" />
+     <antcall target="${setupTarget}" />
+@@ -61,7 +46,7 @@
+     <antcall target="installPreferences">
+       <param
+         name="eclipse-home"
+-        value="${eclipse-home}/eclipse" />
++        value="${eclipse-home}" />
+     </antcall>
+     <antcall target="installExtraPlugins" />
+     <antcall target="installTestPlugins" />
+@@ -96,19 +81,6 @@
+     name="setupRepo"
+     depends="init"
+     unless="testRepoCreated">
+-    <mkdir dir="${repoLocation}" />
+-    <exec
+-      dir="${basedir}"
+-      executable="unzip"
+-      failonerror="false"
+-      resultproperty="unzipResultCode">
+-      <arg value="-o" />
+-      <arg value="-qq" />
+-      <arg value="${repoZip}" />
+-      <arg value="-d" />
+-      <arg value="${repoLocation}" />
+-    </exec>
+-    <echo message="unzip resultcode: ${unzipResultCode}" />
+     <!-- TODO: can do more checking here, if successful, before we set to value -->
+     <property
+       name="testRepoCreated"
+@@ -128,8 +100,9 @@
+       message="runtime archive (SDK) did not exist where expected. runtimeArchive: ${executionDir}/${runtimeArchive}" />
+     <echo message="Deleting existing ${eclipse-home}, if any." />
+     <delete
+-      dir="${eclipse-home}"
+-      verbose="false" />
++      removeNotFollowedSymlinks="true" failonerror="false" verbose="false">
++      <fileset dir="${eclipse-home}" followsymlinks="false" />
++    </delete>
+     <echo message="Fresh extract ${runtimeArchive} into ${install} for testing." />
+     <exec
+       dir="${install}"
+@@ -155,9 +128,9 @@
+       message="runtime archive (SDK) did not exist where expected. runtimeArchive: ${executionDir}/${runtimeArchive}" />
+     <echo message="Deleting existing ${eclipse-home}, if any." />
+     <delete
+-      dir="${eclipse-home}"
+-      verbose="false" />
+-
++      removeNotFollowedSymlinks="true" failonerror="false" verbose="false">
++      <fileset dir="${eclipse-home}" followsymlinks="false" />
++    </delete>
+     <echo message="Fresh extract ${runtimeArchive} into ${install} for testing." />
+     <exec
+       dir="${install}"
+@@ -309,8 +282,9 @@
+       message="plaform archive did not exist where expected. platformArchive: ${platformLocation}/${platformArchive}" />
+     <!-- remove eclipse home directory, to be sure completely fresh -->
+     <delete
+-      verbose="false"
+-      dir="${platformLocation}/eclipse" />
++      removeNotFollowedSymlinks="true" failonerror="false" verbose="false">
++      <fileset dir="${platformLocation}/eclipse" followsymlinks="false" />
++    </delete>
+     <exec
+       dir="${platformLocation}"
+       executable="unzip">
+@@ -333,11 +307,10 @@
+     <fail
+       unless="platformArchiveExists"
+       message="plaform archive did not exist where expected. platformArchive: ${platformLocation}/${platformArchive}" />
+-
+-
+     <delete
+-      verbose="false"
+-      dir="${platformLocation}/eclipse" />
++      removeNotFollowedSymlinks="true" failonerror="false" verbose="false">
++      <fileset dir="${platformLocation}/eclipse" followsymlinks="false" />
++    </delete>
+     <exec
+       dir="${platformLocation}"
+       executable="tar">
+@@ -823,7 +796,7 @@
+ 
+     <property
+       name="current.build.repo"
+-      value="http://${DOWNLOAD_HOST}/eclipse/updates/${eclipseStreamMajor}.${eclipseStreamMinor}-${buildType}-builds/${buildId}" />
++      value="file:${repoLocation}" />
+     <echo message="current.build.repo: ${current.build.repo}" />
+ 
+ 
+@@ -2017,6 +1990,15 @@
+     <antcall target="quickTests" />
+     <antcall target="longRunningTests" />
+ 
++    <!-- Split XML into individual test suites for generating an aggregate report -->
++    <mkdir dir="${results}/split-xml" />
++    <xslt style="${executionDir}/splitter.xsl" basedir="${results}/xml" includes="*.xml" destdir="${results}/split-xml"/>
++    <!-- Aggregate XML report files -->
++    <junitreport todir="${results}/xml" tofile="org.eclipse.sdk.tests.xml">
++      <fileset dir="${results}/split-xml" includes="*.xml" />
++    </junitreport>
++    <!-- Generate top-level HTML report -->
++    <xslt style="${executionDir}/JUNIT.XSL" basedir="${results}/xml" includes="org.eclipse.sdk.tests.xml" destdir="${results}/html" />
+   </target>
+ 
+   <!-- This and all the performance specific targets
+@@ -2194,8 +2176,6 @@
+   <target
+     name="platform"
+     depends="init">
+-    <!-- was removed, temporarily, see bug 400385 -->
+-    <antcall target="relEng" />
+ 
+     <antcall target="ant" />
+     <antcall target="antui" />
+@@ -2227,7 +2207,6 @@
+     <antcall target="e4CssSwt" />
+     <antcall target="e4UI" />
+     <antcall target="equinoxds" />
+-    <antcall target="equinoxp2discovery" />
+     <antcall target="bidi" />
+     <antcall target="ltkuirefactoringtests" />
+     <antcall target="ltkcorerefactoringtests" />
+@@ -2243,7 +2222,6 @@
+     <antcall target="osgi" />
+     <antcall target="coreresources" />
+     <antcall target="equinoxp2" />
+-    <antcall target="teamcvs" />
+     <antcall target="jface" />
+     <antcall target="ui" />
+     <antcall target="uiperformance" />
+--- eclipse.platform.releng.tychoeclipsebuilder/eclipse-junit-tests/src/main/scripts/runtests.sh.orig	2017-03-03 12:36:38.576140783 +0000
++++ eclipse.platform.releng.tychoeclipsebuilder/eclipse-junit-tests/src/main/scripts/runtests.sh	2017-03-03 12:40:39.324608342 +0000
+@@ -6,6 +6,45 @@
+ # version. 
+ # https://bugs.eclipse.org/bugs/show_bug.cgi?id=437069
+ 
++function findXvncAndSetDisplay() {
++    # Try to find Xvnc
++    xvnc=
++    if [ -a /usr/bin/Xvnc ]
++    then
++        xvnc=/usr/bin/Xvnc
++        setupXvnc
++    else
++        if [ -a /usr/X11/bin/Xvnc ]
++        then
++            xvnc=/usr/X11/bin/Xvnc
++            setupXvnc
++        else
++            echo "Couldn't find Xvnc (/usr/bin/Xvnc or /usr/X11/bin/Xvnc).  Using DISPLAY=0:0"
++            DISPLAY=$($HOST):0.0
++        fi
++    fi
++    export DISPLAY
++}
++
++function setupXvnc() {
++    # Pick a high display number.
++    port=`expr '(' $RANDOM '*' 9 / 32767 ')' + 58`
++    echo localhost > Xvnc.cfg
++    echo "Setting up Xvnc on port ${port} with password VNCpassword1"
++    $xvnc :$port -screen 1 1024x768x32 -auth Xvnc.cfg -localhost -PasswordFile eclipse-tests-vncpwd &> Xvnc.log &
++    Xvncpid=$!
++    DISPLAY=$($HOST):$port
++}
++
++function cleanupXvnc() {
++    # Clean up if we used Xvnc
++    if [ -e Xvnc.cfg ]
++    then
++        kill $Xvncpid
++        rm Xvnc.cfg
++    fi
++}
++
+ echo "command line as passed into $(basename ${0}): ${*}"
+ echo "command line (quoted) as passed into $(basename ${0}): ${@}"
+ 
+@@ -159,6 +198,8 @@
+ if [[ "true" == "${START_WINDOW_MGT}" ]]
+ then 
+  ./startWindowManager.sh
++else
++ findXvncAndSetDisplay
+ fi
+ 
+ # During production tests, we define 'testedPlatform' as a combination of
+@@ -192,6 +233,7 @@
+ echo "platformString: ${platformString}"
+ echo "testedPlatform: ${testedPlatform}"
+ 
++ANT_OPTS="${ANT_OPTS} -DtestedPlatform=${testedPlatform}"
+ # -Dtimeout=300000 "${ANT_OPTS}"
+ if [[ -n "${extdirproperty}" ]]
+ then
+@@ -202,4 +244,4 @@
+   $jvm ${ANT_OPTS} ${platformArgString}  -jar $launcher -data workspace -application org.eclipse.ant.core.antRunner -file ${PWD}/test.xml  ${ANT_OPTS} ${platformParmString} -D$installmode=true $properties -logger org.apache.tools.ant.DefaultLogger  $tests 2>&1 | tee $consolelogs
+ fi
+ 
+-
++cleanupXvnc
